@@ -74,54 +74,40 @@ def inject_remove_manage_button():
     """Injeta JavaScript para remover o botão 'Gerenciar aplicativo'"""
     js_script = """
     <script>
-    // Função para remover o botão
     function removeManageButton() {
-        // Tenta múltiplos seletores para maior compatibilidade
-        const selectors = [
-            '[data-testid="manage-app-button"]',
-            'button[title="Gerenciar aplicativo"]',
-            'button[title="Manage app"]',
-            '#root > div:nth-child(1) > div > div > button',
-            '._terminalButton_rix23_138'
-        ];
-        
-        for (const selector of selectors) {
-            const btn = document.querySelector(selector);
-            if (btn) {
-                btn.remove();
-                console.log("✅ Botão 'Gerenciar aplicativo' removido");
-                return true;
-            }
+        // Seletor confirmado que funciona:
+        const btn = document.querySelector('[data-testid="manage-app-button"]');
+        if (btn) {
+            btn.remove();
+            return true;
         }
         return false;
     }
     
-    // Executa imediatamente se o DOM já carregou
+    // Executa imediatamente
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', removeManageButton);
     } else {
         removeManageButton();
     }
     
-    // Usa MutationObserver para capturar se o botão for re-injetado dinamicamente
+    // MutationObserver para remover se o botão for re-injetado
     const observer = new MutationObserver(() => {
         removeManageButton();
     });
     
-    // Observa mudanças no body
     if (document.body) {
         observer.observe(document.body, { childList: true, subtree: true });
     }
     
-    // Tenta novamente após 2 segundos (caso o Streamlit carregue tarde)
+    // Tentativas extras para carregamentos tardios
     setTimeout(removeManageButton, 2000);
     setTimeout(removeManageButton, 5000);
     </script>
     """
-    # Injeta o script com altura mínima (invisível)
     st.components.v1.html(js_script, height=1, scrolling=False)
 
-# Chama a função para injetar o script
+# Injeta o script de remoção
 inject_remove_manage_button()
 
 # Título principal com ícone e tamanho reduzido
