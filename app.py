@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+import google.generativeai as genai  # ← API antiga (funciona!)
 from pypdf import PdfReader
 from pathlib import Path
 import re
@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS Personalizado (sem remoção de botões - já resolvido no Netlify)
+# CSS para remover elementos padrão + estilização
 st.markdown("""
 <style>
     .correct-answer {
@@ -24,9 +24,7 @@ st.markdown("""
         color: #155724;
         display: block;
     }
-    .correct-answer::before {
-        content: "✅ ";
-    }
+    .correct-answer::before { content: "✅ "; }
     .materia-info {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
@@ -34,13 +32,8 @@ st.markdown("""
         border-radius: 5px;
         margin: 10px 0;
         color: #155724;
-        position: sticky;
-        top: 0;
-        z-index: 100;
     }
-    .materia-info strong {
-        color: #155724;
-    }
+    .materia-info strong { color: #155724; }
     .user-message {
         background-color: #e3f2fd;
         border-left: 4px solid #2196f3;
@@ -55,78 +48,31 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
-    .stSelectbox label {
-        font-weight: 600;
-    }
+    .stSelectbox label { font-weight: 600; }
     .main-title {
         font-size: 1.5rem !important;
         font-weight: 600;
         margin-bottom: 1rem;
-        position: sticky;
-        top: 0;
-        z-index: 101;
-        background: #ffffff;
-        padding: 10px 0;
     }
-    .chat-header {
-        font-size: 1.2rem !important;
-        font-weight: 600;
-        margin-bottom: 1rem;
-        color: #333;
-    }
-    /* Ajustar sidebar */
-    .stSidebar {
-        background-color: #f8f9fa;
-    }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stAppHeader {visibility: hidden;}
+    header {visibility: hidden;}
+    .stApp > div[data-testid="stToolbar"] {visibility: hidden;}
+    section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden;}
+    footer[data-testid="stFooter"], .stApp > footer, [data-testid="stFooter"] {display: none !important;}
+    button[title="Fullscreen"], button[aria-label="Fullscreen"] {display: none !important;}
+    .stStatusWidget {display: none !important;}
+    .stApp { padding-bottom: 0 !important; max-width: 100% !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# Título principal (FIXO NO TOPO)
+# Título principal
 st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>', unsafe_allow_html=True)
 
-# ==================== SELEÇÃO DE MATÉRIA (NO TOPO, NÃO NA SIDEBAR) ====================
-st.header("📖 Selecionar Matéria")
-
-pdf_folder = Path("pdfs")
-if not pdf_folder.exists():
-    pdf_folder.mkdir(parents=True, exist_ok=True)
-
-pdf_files = []
-try:
-    for item in pdf_folder.iterdir():
-        if item.is_file() and item.suffix.lower() == ".pdf":
-            pdf_files.append(item)
-except Exception as e:
-    st.error(f"Erro ao listar PDFs: {e}")
-
-if len(pdf_files) == 0:
-    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
-    selected_pdf = None
-    selected_materia = None
-else:
-    pdf_options = {}
-    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-        nome_original = pdf_path.name
-        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-        pdf_options[nome_exibicao] = {
-            'path': pdf_path,
-            'original_name': nome_original
-        }
-    
-    selected_materia = st.selectbox(
-        "Escolha a matéria:",
-        options=list(pdf_options.keys()),
-        index=0,
-        help="Selecione o PDF que será usado como fonte para as respostas"
-    )
-    
-    selected_pdf_info = pdf_options[selected_materia]
-    selected_pdf = selected_pdf_info['path']
-
-# ==================== BARRA LATERAL (APENAS API KEY STATUS) ====================
+# ==================== BARRA LATERAL ====================
 with st.sidebar:
-    st.header("⚙️ Configurações")
-    
+    # Configurar API Key (API antiga)
     if "GEMINI_API_KEY" not in st.secrets:
         st.error("❌ API Key não configurada")
         st.stop()
@@ -137,14 +83,46 @@ with st.sidebar:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
     
-    st.success("✅ API Conectada")
     st.divider()
-    st.markdown("""
-    <small style='color: gray;'>
-    📚 Chat com PDF<br>
-    Powered by Google Gemini
-    </small>
-    """, unsafe_allow_html=True)
+    
+    # Seleção de Matéria
+    st.header("📖 Selecionar Matéria")
+    
+    pdf_folder = Path("pdfs")
+    if not pdf_folder.exists():
+        pdf_folder.mkdir(parents=True, exist_ok=True)
+    
+    pdf_files = []
+    try:
+        for item in pdf_folder.iterdir():
+            if item.is_file() and item.suffix.lower() == ".pdf":
+                pdf_files.append(item)
+    except Exception as e:
+        st.error(f"Erro ao listar PDFs: {e}")
+    
+    if len(pdf_files) == 0:
+        st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
+        selected_pdf = None
+        selected_materia = None
+    else:
+        pdf_options = {}
+        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+            nome_original = pdf_path.name
+            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+            pdf_options[nome_exibicao] = {
+                'path': pdf_path,
+                'original_name': nome_original
+            }
+        
+        selected_materia = st.selectbox(
+            "Escolha a matéria:",
+            options=list(pdf_options.keys()),
+            index=0,
+            help="Selecione o PDF que será usado como fonte para as respostas"
+        )
+        
+        selected_pdf_info = pdf_options[selected_materia]
+        selected_pdf = selected_pdf_info['path']
 
 # ==================== ESTADO DA SESSÃO ====================
 if "messages" not in st.session_state:
@@ -191,7 +169,7 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ==================== MOSTRAR MATÉRIA SELECIONADA (FIXA AO ROLAR) ====================
+# ==================== MOSTRAR MATÉRIA SELECIONADA ====================
 if st.session_state.pdf_content:
     st.markdown(f"""
     <div class="materia-info">
@@ -202,8 +180,8 @@ if st.session_state.pdf_content:
 
 st.divider()
 
-# ==================== ÁREA DO CHAT (TÍTULO MENOR) ====================
-st.markdown('<p class="chat-header">💬 Chat de Dúvidas</p>', unsafe_allow_html=True)
+# ==================== ÁREA DO CHAT ====================
+st.header("💬 Chat de Dúvidas")
 
 for message in st.session_state.messages:
     if message["role"] == "user":
@@ -280,6 +258,7 @@ PERGUNTA:
 
 RESPOSTA (use **CORRETA** para destacar a alternativa certa):
 """
+                # ← ← ← CHAMADA À API ANTIGA (FUNCIONA!) ← ← ←
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(full_prompt)
                 resposta = response.text
