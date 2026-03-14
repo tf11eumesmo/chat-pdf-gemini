@@ -6,46 +6,40 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ========== CSS COM CABEÇALHO FIXO REAL ==========
+# ========== CSS COM CABEÇALHO REALMENTE FIXO ==========
 st.markdown("""
 <style>
-    /* Cabeçalho fixo no topo da janela (não da página) */
+    /* Cabeçalho fixo no topo - Streamlit compatible */
     .fixed-header {
         position: fixed !important;
         top: 0 !important;
         left: 0 !important;
         right: 0 !important;
         background-color: #ffffff !important;
-        z-index: 99999 !important;
-        padding: 8px 20px !important;
-        border-bottom: 1px solid #e0e0e0 !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
-    }
-    
-    /* Container do conteúdo principal com padding para não ficar atrás do header */
-    .main .block-container {
-        padding-top: 130px !important;
+        z-index: 999999 !important;
+        padding: 15px 20px !important;
+        border-bottom: 2px solid #28a745 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
     }
     
     /* Título principal */
     .main-title {
-        font-size: 1.2rem !important;
-        font-weight: 600 !important;
-        margin: 0 !important;
+        font-size: 1.3rem !important;
+        font-weight: 600;
+        margin: 0 0 8px 0 !important;
         color: #1a1a1a !important;
-        line-height: 1.4 !important;
     }
     
     /* Matéria Atual (verde) */
     .materia-info {
         background-color: #d4edda !important;
         border-left: 4px solid #28a745 !important;
-        padding: 6px 12px !important;
-        border-radius: 4px !important;
-        margin: 4px 0 0 0 !important;
+        padding: 8px 12px !important;
+        border-radius: 5px !important;
+        margin: 0 !important;
         color: #155724 !important;
         font-size: 0.9rem !important;
-        line-height: 1.3 !important;
+        display: inline-block !important;
     }
     .materia-info strong {
         color: #155724 !important;
@@ -53,99 +47,69 @@ st.markdown("""
     
     /* Chat de Dúvidas (fonte reduzida) */
     .chat-header {
-        font-size: 1rem !important;
-        font-weight: 600 !important;
+        font-size: 1.1rem !important;
+        font-weight: 600;
         color: #333 !important;
-        margin: 0 0 8px 0 !important;
-        padding-bottom: 8px !important;
-        border-bottom: 1px solid #eee !important;
+        margin: 10px 0 !important;
     }
     
     /* Respostas corretas */
     .correct-answer {
-        background-color: #d4edda !important;
-        border-left: 4px solid #28a745 !important;
-        padding: 8px 12px !important;
-        border-radius: 4px !important;
-        margin: 6px 0 !important;
-        font-weight: 600 !important;
-        color: #155724 !important;
-        display: block !important;
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 8px 12px;
+        border-radius: 5px;
+        margin: 6px 0;
+        font-weight: 600;
+        color: #155724;
+        display: block;
     }
-    .correct-answer::before { content: "✅ " !important; }
+    .correct-answer::before { content: "✅ "; }
     
     /* Mensagens do chat */
     .user-message {
-        background-color: #e3f2fd !important;
-        border-left: 4px solid #2196f3 !important;
-        padding: 12px !important;
-        border-radius: 8px !important;
-        margin: 8px 0 !important;
+        background-color: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 10px 0;
     }
     .assistant-message {
-        background-color: #f5f5f5 !important;
-        border-left: 4px solid #4caf50 !important;
-        padding: 12px !important;
-        border-radius: 8px !important;
-        margin: 8px 0 !important;
+        background-color: #f5f5f5;
+        border-left: 4px solid #4caf50;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 10px 0;
     }
     
     /* Sidebar */
-    .stSelectbox label { font-weight: 600 !important; }
+    .stSelectbox label { font-weight: 600; }
     
     /* Esconder elementos padrão do Streamlit */
-    #MainMenu {visibility: hidden !important;}
-    footer {visibility: hidden !important;}
-    .stAppHeader {visibility: hidden !important;}
-    header {visibility: hidden !important;}
-    .stApp > div[data-testid="stToolbar"] {visibility: hidden !important;}
-    section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden !important;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stAppHeader {visibility: hidden;}
+    header {visibility: hidden;}
+    .stApp > div[data-testid="stToolbar"] {visibility: hidden;}
+    section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden;}
     
-    /* Ajuste para mobile */
-    @media (max-width: 768px) {
-        .fixed-header {
-            padding: 6px 10px !important;
-        }
-        .main-title {
-            font-size: 1rem !important;
-        }
-        .materia-info {
-            font-size: 0.85rem !important;
-        }
-        .chat-header {
-            font-size: 0.95rem !important;
-        }
-        .main .block-container {
-            padding-top: 120px !important;
-        }
+    /* Espaçamento para conteúdo não ficar escondido atrás do header fixo */
+    .main-content {
+        margin-top: 140px !important;
+    }
+    
+    /* Ajustar container principal do Streamlit */
+    .block-container {
+        padding-top: 2rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ========== CABEÇALHO FIXO NO TOPO (FORA DO CONTAINER PRINCIPAL) ==========
-# Usamos st.markdown com unsafe_allow_html para injetar HTML fixo
+# ========== CABEÇALHO FIXO NO TOPO ==========
 st.markdown("""
 <div class="fixed-header">
     <p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>
-    <div id="materia-info-container"></div>
-    <h3 class="chat-header">💬 Chat de Dúvidas</h3>
-</div>
-""", unsafe_allow_html=True)
-
-# Script para atualizar dinamicamente a matéria atual no header fixo
-st.markdown("""
-<script>
-function updateMateriaInfo(nome, caracteres) {
-    const container = document.getElementById('materia-info-container');
-    if (container) {
-        if (nome && caracteres) {
-            container.innerHTML = '<div class="materia-info"><strong>📚 Matéria Atual:</strong> ' + nome + ' • <small>' + caracteres + ' caracteres</small></div>';
-        } else {
-            container.innerHTML = '<div class="materia-info" style="background-color: #fff3cd; border-left-color: #ffc107; color: #856404;">⚠️ Selecione uma matéria acima para começar</div>';
-        }
-    }
-}
-</script>
+    <div id="materia-atual-container">
 """, unsafe_allow_html=True)
 
 # ========== BARRA LATERAL ==========
@@ -229,33 +193,32 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.pdf_content = ""
         st.session_state.current_pdf = None
         st.session_state.caracteres_count = 0
-        # Atualiza header fixo via JS
-        st.markdown(f"""
-        <script>
-        updateMateriaInfo('', '');
-        </script>
-        """, unsafe_allow_html=True)
     else:
         st.session_state.pdf_content = texto
         st.session_state.current_pdf = selected_pdf
         st.session_state.materia_nome = selected_materia
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
-        # Atualiza header fixo via JS
-        st.markdown(f"""
-        <script>
-        updateMateriaInfo('{selected_materia}', '{len(texto):,}');
-        </script>
-        """, unsafe_allow_html=True)
 
-# ========== EXIBIR MATÉRIA ATUAL (também no fluxo normal para fallback) ==========
-# Esta exibição é opcional, pois o header fixo já mostra a informação
-# Mantemos para compatibilidade caso o JS não funcione
+# ========== FECHAR HEADER FIXO ==========
+st.markdown('</div></div>', unsafe_allow_html=True)
+
+# ========== CONTEÚDO PRINCIPAL COM MARGEM ==========
+st.markdown('<div class="main-content">', unsafe_allow_html=True)
+
+# ========== MOSTRAR MATÉRIA ATUAL ==========
 if st.session_state.pdf_content:
-    # Não exibir duplicado, pois o header fixo já mostra
-    pass
+    st.markdown(f"""
+    <div class="materia-info">
+        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+        <small>{st.session_state.caracteres_count:,} caracteres</small>
+    </div>
+    """, unsafe_allow_html=True)
 else:
-    st.markdown('<div class="materia-info" style="background-color: #fff3cd; border-left-color: #ffc107; color: #856404; margin-bottom: 15px;">⚠️ Selecione uma matéria acima para começar</div>', unsafe_allow_html=True)
+    st.markdown('<div class="materia-info" style="background-color: #fff3cd; border-left-color: #ffc107; color: #856404;">⚠️ Selecione uma matéria acima para começar</div>', unsafe_allow_html=True)
+
+# ========== CHAT DE DÚVIDAS (FONTE REDUZIDA) ==========
+st.markdown('<h3 class="chat-header">💬 Chat de Dúvidas</h3>', unsafe_allow_html=True)
 
 st.divider()
 
@@ -414,6 +377,9 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 erro_msg = f"❌ Erro na API: {str(e)}"
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
+
+# ========== FECHAR MAIN CONTENT ==========
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ========== BOTÃO PARA LIMPAR CHAT ==========
 col1, col2, col3 = st.columns([1, 4, 1])
