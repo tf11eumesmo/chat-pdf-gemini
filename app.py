@@ -1,12 +1,3 @@
-Aqui está o código completo e corrigido.
-
-**Principais alterações realizadas:**
-1.  **Cabeçalho Fixo (Sticky):** Criei uma classe CSS `.sticky-header` e envolvi o Título, a Info da Matéria e o Título do Chat nela. Isso faz com que eles fiquem "grudados" no topo da tela enquanto você rola a conversa.
-2.  **Fonte Menor:** Adicionei a classe `.chat-title-small` para reduzir o tamanho da fonte do "💬 Chat de Dúvidas".
-3.  **Correção de Erro:** A função `formatar_resposta` estava sendo chamada antes de ser definida no seu código original. Eu a movi para o início do script para evitar erros de execução.
-4.  **Fundo Opaco:** Adicionei `background-color: white` no cabeçalho fixo para que o texto da conversa não apareça "atrás" dele ao rolar a página.
-
-```python
 import streamlit as st
 import cohere
 from pypdf import PdfReader
@@ -354,4 +345,3 @@ with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-```
