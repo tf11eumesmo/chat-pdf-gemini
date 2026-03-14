@@ -6,12 +6,11 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS CORRIGIDO ----------
+# ---------- CSS DEFINITIVO ----------
 st.markdown("""
 <style>
-
 /* OCULTAR CABEÇALHO PADRÃO DO STREAMLIT */
-header {visibility: hidden;}
+header {visibility: hidden !important;}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
 hr {
@@ -20,20 +19,26 @@ hr {
 
 /* --- SIDEBAR TRAVADA E FIXA --- */
 
-/* Esconde o botão de colapso */
+/* Esconde o botão de colapso completamente */
 div[data-testid="stSidebarCollapseButton"] {
     display: none !important;
     visibility: hidden !important;
     pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    opacity: 0 !important;
 }
 
+/* Esconde qualquer botão de header dentro da sidebar */
 section[data-testid="stSidebar"] button[kind="header"],
 section[data-testid="stSidebar"] button[kind="headerNoPadding"] {
     display: none !important;
     visibility: hidden !important;
 }
 
-/* Sidebar fixa com largura definida */
+/* Sidebar fixa com largura definida - FORÇANDO TUDO */
 section[data-testid="stSidebar"] {
     width: 300px !important;
     min-width: 300px !important;
@@ -47,25 +52,32 @@ section[data-testid="stSidebar"] {
     border-right: 1px solid #ddd !important;
     z-index: 1000 !important;
     transform: none !important;
+    transition: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* --- CONTEÚDO PRINCIPAL AJUSTADO --- */
 
-/* Container principal deve começar após a sidebar */
+/* Força o container principal a começar após a sidebar */
 .main > div:first-child {
     margin-left: 300px !important;
     width: calc(100% - 300px) !important;
     max-width: calc(100% - 300px) !important;
     padding-left: 2rem !important;
     padding-right: 2rem !important;
+    position: relative !important;
+    left: 0 !important;
 }
 
 /* Ajuste do bloco de conteúdo */
 .block-container {
-    padding-top: 150px;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-top: 150px !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
     max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
 
 /* TOPO FIXO */
@@ -145,6 +157,25 @@ div[data-testid="stSidebar"] > div {
     max-width: 100% !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
+    position: relative !important;
+    z-index: 100 !important;
+}
+
+/* Força o container do chat a ter largura correta */
+div[data-testid="stChatInputContainer"] {
+    max-width: 100% !important;
+    margin: 0 !important;
+}
+
+/* Ajuste fino para elementos internos */
+.stApp > main > div {
+    margin-left: 300px !important;
+    width: calc(100% - 300px) !important;
+}
+
+/* Garante que nada vaze para a área da sidebar */
+* {
+    box-sizing: border-box;
 }
 </style>
 """, unsafe_allow_html=True)
