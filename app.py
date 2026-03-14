@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+import cohere  # ← Nova biblioteca
 from pypdf import PdfReader
 from pathlib import Path
 import re
@@ -81,12 +81,13 @@ with st.sidebar:
     
     st.divider()
     
-    if "GEMINI_API_KEY" not in st.secrets:
-        st.error("❌ GEMINI_API_KEY não configurada")
+    # Configurar Cohere API
+    if "COHERE_API_KEY" not in st.secrets:
+        st.error("❌ COHERE_API_KEY não configurada")
         st.stop()
     
     try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
     except Exception as e:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
@@ -197,30 +198,38 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         
         with st.spinner("Analisando..."):
             try:
-                # ← ← ← SEM LIMITE: Gemini 2.0 Flash suporta 1M tokens ← ← ←
-                texto_completo = st.session_state.pdf_content
+                # Limitar para ~100k caracteres (~25k tokens) para ficar dentro do limite de 128k do Cohere
+                texto_limitado = st.session_state.pdf_content[:100000]
                 
                 full_prompt = f"""
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
-REGRAS:
-1. Responda APENAS com base no material abaixo
-2. Se houver alternativas (A, B, C, D, E), indique qual está **CORRETA**
-3. Formato: "A) Texto **CORRETA**"
-4. Se não encontrar: "Não encontrei essa informação no material"
+REGRAS OBRIGATÓRIAS:
+1. Responda APENAS com base no conteúdo do material fornecido abaixo
+2. Se houver questões com alternativas (A, B, C, D, E), você DEVE indicar qual está correta
+3. Para indicar a alternativa correta, use EXATAMENTE este formato:
+   - Escreva a alternativa completa seguida de **CORRETA**
+   - Exemplo: "A) Esta é a resposta **CORRETA**"
+4. Se não encontrar a informação no material, diga: "Não encontrei essa informação no material fornecido"
+5. Seja claro, didático e objetivo
 
-MATERIAL:
-{texto_completo}
+MATERIAL DE ESTUDO:
+{texto_limitado}
 
-PERGUNTA:
+PERGUNTA DO ALUNO:
 {prompt}
 
-RESPOSTA:
+RESPOSTA (use **CORRETA** para destacar a alternativa certa):
 """
                 
-                # ← ← ← MODELO CORRETO (da sua lista!) ← ← ←
-                model = genai.GenerativeModel('gemini-2.0-flash')
-                response = model.generate_content(full_prompt)
+                # ← ← ← CHAMADA À COHERE API ← ← ←
+                response = co.chat(
+                    model="command-r-plus",  # ✅ Modelo com 128k contexto
+                    message=full_prompt,
+                    temperature=0.3,
+                    max_tokens=2048,
+                    preamble="Você é um assistente útil e preciso."
+                )
                 resposta = response.text
                 
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
