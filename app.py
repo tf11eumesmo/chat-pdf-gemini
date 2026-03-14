@@ -33,18 +33,6 @@ hr {
     padding: 12px 40px;
 }
 
-.main-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-bottom: 6px;
-}
-
-.chat-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-top: 4px;
-}
-
 .materia-info {
     background-color: #d4edda;
     border-left: 4px solid #28a745;
