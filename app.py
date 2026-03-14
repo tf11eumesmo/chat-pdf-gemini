@@ -1,5 +1,5 @@
 import streamlit as st
-import cohere  # ← Nova biblioteca
+import cohere
 from pypdf import PdfReader
 from pathlib import Path
 import re
@@ -222,9 +222,9 @@ PERGUNTA DO ALUNO:
 RESPOSTA (use **CORRETA** para destacar a alternativa certa):
 """
                 
-                # ← ← ← CHAMADA À COHERE API ← ← ←
+                # ← ← ← CHAMADA À COHERE API COM MODELO ATUALIZADO ← ← ←
                 response = co.chat(
-                    model="command-r-plus",  # ✅ Modelo com 128k contexto
+                    model="command-a-03-2025",  # ✅ MODELO CORRETO (flagship 2026)
                     message=full_prompt,
                     temperature=0.3,
                     max_tokens=2048,
