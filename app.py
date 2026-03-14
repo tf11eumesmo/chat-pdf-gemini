@@ -30,10 +30,10 @@ hr {
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 12px 40px;
+    padding: 15px 40px;
 }
 
-.main-title-row {
+.main-row {
     display: flex;
     align-items: center;
     gap: 15px;
@@ -57,7 +57,6 @@ hr {
     border-left: 4px solid #28a745;
     padding: 8px 12px;
     border-radius: 5px;
-    margin-top: 4px;
     color: #155724;
     font-size: 0.9rem;
 }
@@ -90,9 +89,9 @@ hr {
     display: block;
 }
 
-/* Selectbox customizado */
-.stSelectbox > div {
-    min-width: 200px;
+/* Selectbox inline */
+.selectbox-container {
+    min-width: 300px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -183,7 +182,7 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
-    <div class="main-title-row">
+    <div class="main-row">
         <span class="main-title">📖 Escolha a matéria:</span>
         <div class="materia-info">
             <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
@@ -193,6 +192,14 @@ st.markdown(f"""
     <div class="chat-title">💬 Chat de Dúvidas</div>
 </div>
 """, unsafe_allow_html=True)
+
+# Selectbox inline com o label
+col_label, col_select = st.columns([2, 5], gap="small")
+with col_label:
+    st.markdown('<div style="padding-top:8px;"><strong>📖 Escolha a matéria:</strong></div>', unsafe_allow_html=True)
+with col_select:
+    if len(pdf_files) > 0:
+        st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select_inline", label_visibility="collapsed")
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
