@@ -9,64 +9,35 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
-/* Esconder header padrão do Streamlit */
-header {visibility: hidden !important;}
 
-/* REMOVER BOTÃO DE TOGGLE DA SIDEBAR */
-button[data-testid="stBaseButton-headerNoPadding"],
-button[kind="headerNoPadding"],
-.stApp > header > button:first-of-type,
-[data-testid="stSidebarCollapsedControl"],
-.stApp [data-testid="stSidebar"] + div > header button,
-.stApp header button[aria-label*="sidebar"],
-.stApp button[data-testid="stCollapseButton"] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    opacity: 0 !important;
-}
+/* OCULTAR HEADER PADRÃO */
+header {visibility: hidden;}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
 hr {
     display: none !important;
 }
 
-/* SIDEBAR FIXA */
-section[data-testid="stSidebar"] {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    height: 100vh !important;
-    width: 300px !important;
-    z-index: 1000 !important;
-    padding-top: 80px !important;
-    overflow-y: auto !important;
-    background: white !important;
-    border-right: 1px solid #ddd !important;
-    transform: none !important;
-    transition: none !important;
+.block-container {
+    padding-top: 150px;
 }
 
-/* Garantir que o conteúdo da sidebar não seja cortado */
-section[data-testid="stSidebar"] > div {
-    height: 100% !important;
-    padding: 10px !important;
+/* BOTÃO DE FECHAR SIDEBAR (OCULTAR) */
+[data-testid="stSidebarCloseButton"] {
+    visibility: hidden !important;
+    pointer-events: none;
 }
-
-/* AJUSTE DO CONTEÚDO PRINCIPAL */
-.main .block-container {
-    padding-top: 150px !important;
-    padding-left: 320px !important;
-    margin-left: 0 !important;
-    max-width: 100% !important;
-    width: 100% !important;
+/* Fallback para outras versões ou seletores específicos */
+button[aria-label="Close sidebar"],
+button[kind="headerNoPadding"] {
+    display: none !important;
 }
 
 /* TOPO FIXO */
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px;
+    left: 300px; /* Ajuste conforme a largura da sidebar se necessário */
     right: 0;
     background: white;
     z-index: 999;
@@ -124,21 +95,6 @@ section[data-testid="stSidebar"] > div {
 }
 
 .stSelectbox label { font-weight: 600; }
-
-/* RESPONSIVO PARA TELAS MENORES */
-@media (max-width: 768px) {
-    section[data-testid="stSidebar"] {
-        width: 100% !important;
-        position: relative !important;
-        height: auto !important;
-    }
-    .top-fixed {
-        left: 0 !important;
-    }
-    .main .block-container {
-        padding-left: 20px !important;
-    }
-}
 </style>
 """, unsafe_allow_html=True)
 
