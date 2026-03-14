@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai  # ← Biblioteca antiga (funciona!)
+import google.generativeai as genai
 from pypdf import PdfReader
 from pathlib import Path
 import re
@@ -81,7 +81,6 @@ with st.sidebar:
     
     st.divider()
     
-    # Configurar Gemini API
     if "GEMINI_API_KEY" not in st.secrets:
         st.error("❌ GEMINI_API_KEY não configurada")
         st.stop()
@@ -198,7 +197,7 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         
         with st.spinner("Analisando..."):
             try:
-                # ← ← ← SEM LIMITE: Gemini suporta PDFs gigantes ← ← ←
+                # ← ← ← SEM LIMITE: Gemini 2.0 Flash suporta 1M tokens ← ← ←
                 texto_completo = st.session_state.pdf_content
                 
                 full_prompt = f"""
@@ -219,8 +218,8 @@ PERGUNTA:
 RESPOSTA:
 """
                 
-                # ← ← ← MODELO CORRETO PARA FREE TIER ← ← ←
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                # ← ← ← MODELO CORRETO (da sua lista!) ← ← ←
+                model = genai.GenerativeModel('gemini-2.0-flash')
                 response = model.generate_content(full_prompt)
                 resposta = response.text
                 
