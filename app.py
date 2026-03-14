@@ -9,16 +9,15 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
-
+/* Esconder header padrão */
 header {visibility: hidden;}
 
-/* REMOVER LINHAS DIVISÓRIAS (HR) */
-hr {
-    display: none !important;
-}
+/* Remover linhas divisórias */
+hr {display: none !important;}
 
+/* Ajustar padding */
 .block-container {
-    padding-top: 180px;
+    padding-top: 150px;
 }
 
 /* TOPO FIXO */
@@ -31,33 +30,36 @@ hr {
     z-index: 999;
     border-bottom: 1px solid #ddd;
     padding: 15px 40px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .top-row {
     display: flex;
     align-items: center;
     gap: 15px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
 }
 
 .top-label {
-    font-size: 1rem;
+    font-size: 1.05rem;
     font-weight: 600;
     white-space: nowrap;
+    color: #333;
 }
 
 .materia-info {
     background-color: #d4edda;
     border-left: 4px solid #28a745;
-    padding: 8px 12px;
+    padding: 10px 15px;
     border-radius: 5px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     color: #155724;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
 }
 
 .chat-title {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 600;
     color: #666;
 }
@@ -90,12 +92,9 @@ hr {
     display: block;
 }
 
-/* Selectbox customizado */
+/* Selectbox */
 .stSelectbox {
-    min-width: 250px;
-}
-.stSelectbox > div {
-    min-width: 250px;
+    min-width: 300px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -113,7 +112,7 @@ try:
 except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
-# Session state initialization
+# Session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -125,10 +124,11 @@ if "materia_nome" not in st.session_state:
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
 
-# Processar PDFs
+# Processar seleção
+selected_pdf = None
 if len(pdf_files) == 0:
-    selected_pdf = None
     selected_materia = None
+    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
 else:
     pdf_options = {}
     for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
@@ -136,11 +136,17 @@ else:
         nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
         pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
     
-    selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
+    selected_materia = st.selectbox(
+        "", 
+        options=list(pdf_options.keys()), 
+        index=0, 
+        key="materia_select", 
+        label_visibility="collapsed"
+    )
     selected_pdf_info = pdf_options[selected_materia]
     selected_pdf = selected_pdf_info['path']
 
-# API Key check
+# API Key
 if "COHERE_API_KEY" not in st.secrets:
     st.error("❌ COHERE_API_KEY não configurada")
     st.stop()
@@ -182,31 +188,26 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ---------- TOPO FIXO ----------
-st.markdown(f"""
+# ---------- TOPO FIXO COM HTML RENDERIZADO ----------
+materia_atual = st.session_state.materia_nome if st.session_state.materia_nome else "Nenhuma selecionada"
+caracteres = f"{st.session_state.caracteres_count:,}"
+
+html_topo = f"""
 <div class="top-fixed">
     <div class="top-row">
         <span class="top-label">📖 Escolha a matéria:</span>
-        <div id="materia-select-container"></div>
     </div>
     
     <div class="materia-info">
-        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome if st.session_state.materia_nome else "Nenhuma"} • 
-        <small>{st.session_state.caracteres_count:,} caracteres</small>
+        <strong>📚 Matéria Atual:</strong> {materia_atual} • 
+        <small>{caracteres} caracteres</small>
     </div>
     
     <div class="chat-title">💬 Chat de Dúvidas</div>
 </div>
-""", unsafe_allow_html=True)
+"""
 
-# Esconder o selectbox padrão do Streamlit e mostrar apenas o customizado
-st.markdown("""
-<style>
-[data-testid="stSelectbox"] {
-    display: none;
-}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(html_topo, unsafe_allow_html=True)
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
@@ -263,7 +264,7 @@ def formatar_resposta(texto):
     
     return texto
 
-# Renderizar histórico de mensagens
+# Renderizar histórico
 for message in st.session_state.messages:
     if message["role"] == "user":
         pergunta_limpa = message["content"]
@@ -355,7 +356,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# Botão de limpar histórico
+# Botão limpar
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
