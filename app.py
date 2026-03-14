@@ -3,73 +3,40 @@ import cohere
 from pypdf import PdfReader
 from pathlib import Path
 import re
-import base64
+import easyocr
+from PIL import Image
+import io
 
-st.set_page_config(page_title="Chat com PDF e Imagem", page_icon="📚", layout="wide")
+st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
 # ---------- CSS ----------
 st.markdown("""
 <style>
-/* OCULTAR HEADER PADRÃO */
-header {visibility: hidden;}
+/* ... (mantenha todo o seu CSS original aqui) ... */
 
-/* REMOVER LINHAS DIVISÓRIAS (HR) */
-hr { display: none !important; }
-
-.block-container { padding-top: 150px; }
-
-/* BOTÃO DE FECHAR SIDEBAR (OCULTAR) */
-[data-testid="stSidebarCloseButton"] { visibility: hidden !important; pointer-events: none; }
-button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: none !important; }
-
-/* TOPO FIXO */
-.top-fixed {
-    position: fixed; top: 0; left: 300px; right: 0;
-    background: white; z-index: 999;
-    border-bottom: 1px solid #ddd; padding: 15px 40px;
-}
-.main-title { font-size: 1.35rem; font-weight: 600; }
-.chat-title { font-size: 0.95rem; font-weight: 600; margin-top: 8px; text-align: center; }
-.materia-info {
-    background-color: #d4edda; border-left: 4px solid #28a745;
-    padding: 10px 12px; border-radius: 5px; margin-top: 8px;
-    color: #155724;
+/* Estilo para área de upload de imagem */
+.image-upload-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-/* CHAT */
-.user-message {
-    background-color: #e3f2fd; border-left: 4px solid #2196f3;
-    padding: 15px; border-radius: 10px; margin: 10px 0;
-}
-.assistant-message {
-    background-color: #f5f5f5; border-left: 4px solid #4caf50;
-    padding: 15px; border-radius: 10px; margin: 10px 0;
-}
-.correct-answer {
-    background-color: #d4edda; border-left: 4px solid #28a745;
-    padding: 8px 12px; border-radius: 5px; margin: 6px 0;
-    font-weight: 600; color: #155724; display: block;
-}
-
-/* IMAGEM NO CHAT */
-.chat-image-preview {
-    max-width: 300px;
-    max-height: 300px;
+.preview-image {
+    max-width: 100px;
+    max-height: 100px;
     border-radius: 8px;
-    margin-top: 10px;
-    border: 1px solid #ccc;
-    display: block;
+    border: 2px solid #2196f3;
 }
-
-.stSelectbox label { font-weight: 600; }
-
-/* INPUT DE ARQUIVO COMPACTO */
-.stFileUploader label { font-size: 0.85rem; }
-.stFileUploader { margin-bottom: 0; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SIDEBAR (CONFIGURAÇÃO) ----------
+# ---------- Inicialização do OCR ----------
+@st.cache_resource
+def load_ocr_reader():
+    """Carrega o leitor OCR uma única vez (cache)"""
+    return easyocr.Reader(['pt', 'en'], gpu=False, verbose=False)
+
+# ---------- Sidebar (mantida igual) ----------
 with st.sidebar:
     st.header("📖 Escolha a matéria:")
     
@@ -85,11 +52,10 @@ with st.sidebar:
     except Exception as e:
         st.error(f"Erro ao listar PDFs: {e}")
     
-    selected_pdf = None
-    selected_materia = None
-
     if len(pdf_files) == 0:
         st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
+        selected_pdf = None
+        selected_materia = None
     else:
         pdf_options = {}
         for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
@@ -111,7 +77,7 @@ with st.sidebar:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
 
-# ---------- SESSION STATE ----------
+# ---------- Session State ----------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -122,10 +88,10 @@ if "materia_nome" not in st.session_state:
     st.session_state.materia_nome = ""
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
-if "current_image" not in st.session_state:
-    st.session_state.current_image = None
+if "uploaded_image_text" not in st.session_state:
+    st.session_state.uploaded_image_text = None  # Armazena texto extraído da imagem
 
-# ---------- FUNÇÕES ----------
+# ---------- Funções ----------
 def extract_pdf_text(pdf_path):
     try:
         reader = PdfReader(str(pdf_path))
@@ -142,6 +108,24 @@ def extract_pdf_text(pdf_path):
         return text, None
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
+
+def extract_text_from_image(image_file, ocr_reader):
+    """Extrai texto de imagem usando EasyOCR"""
+    try:
+        image = Image.open(image_file)
+        # Pré-processamento: converter para RGB se necessário
+        if image.mode in ('RGBA', 'P', 'LA'):
+            image = image.convert('RGB')
+        
+        # Extrair texto com OCR
+        results = ocr_reader.readtext(image, detail=0)
+        extracted_text = " ".join(results).strip()
+        
+        if not extracted_text:
+            return None, "Nenhum texto reconhecido na imagem"
+        return extracted_text, None
+    except Exception as e:
+        return None, f"Erro ao processar imagem: {str(e)}"
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
@@ -171,14 +155,28 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_vf:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    texto = re.sub(r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*', r'\1<span class="correct-answer">✅ \2</span>', texto, flags=re.IGNORECASE)
-    texto = re.sub(r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*', r'<span class="correct-answer">✅ Resposta: \2</span>', texto, flags=re.IGNORECASE)
-    texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
-    texto = texto.replace('**', '').replace('\n', '<br>')
+    texto = re.sub(
+        r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*',
+        r'\1<span class="correct-answer">✅ \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
     
+    texto = re.sub(
+        r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*',
+        r'<span class="correct-answer">✅ Resposta: \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
+    
+    texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
+    texto = re.sub(r'(\n|^)(V|v)\)\s*', r'\1<strong>V)</strong> ', texto)
+    texto = re.sub(r'(\n|^)(F|f)\)\s*', r'\1<strong>F)</strong> ', texto)
+    
+    texto = texto.replace('**', '').replace('\n', '<br>')
     return texto
 
-# ---------- CARREGAR PDF SE MUDAR ----------
+# ---------- Carregar PDF quando mudar ----------
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -192,7 +190,7 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.materia_nome = selected_materia
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
-        st.session_state.current_image = None
+        st.session_state.uploaded_image_text = None  # Resetar texto da imagem
 
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
@@ -201,125 +199,123 @@ st.markdown(f"""
 <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
 <small>{st.session_state.caracteres_count:,} caracteres</small>
 </div>
-<div class="chat-title">
-💬 Chat de Questões (Texto ou Imagem)
-</div>
+<div class="chat-title">💬 Chat de Questões</div>
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- ÁREA DE CHAT ----------
-chat_container = st.container()
-
-with chat_container:
-    for message in st.session_state.messages:
-        if message["role"] == "user":
-            pergunta_limpa = message["content"]
-            pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
-            
-            html_content = f"<strong>👤 Você:</strong><br>{pergunta_limpa}"
-            
-            if "image_data" in message and message["image_data"]:
-                b64_img = base64.b64encode(message["image_data"]).decode()
-                html_content += f'<br><img src="data:image/jpeg;base64,{b64_img}" class="chat-image-preview">'
-            
-            st.markdown(f"""
-            <div class="user-message">
-                {html_content}
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            resposta_formatada = formatar_resposta(message["content"])
-            st.markdown(f"""
-            <div class="assistant-message">
-                <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-            </div>
-            """, unsafe_allow_html=True)
-
-# ---------- INPUTS (IMAGEM + TEXTO NA MESMA LINHA) ----------
-st.markdown("---")
-
-col_upload, col_text, col_button = st.columns([2, 6, 1])
-
-with col_upload:
-    uploaded_file = st.file_uploader("📷 Enviar Foto", type=['png', 'jpg', 'jpeg'], key="img_uploader", label_visibility="collapsed")
-    if uploaded_file is not None:
-        st.session_state.current_image = uploaded_file.getvalue()
-
-with col_text:
-    prompt = st.chat_input("Digite sua questão ou envie uma foto...")
-
-# Botão para limpar imagem (aparece só quando tem imagem)
-if st.session_state.current_image is not None:
-    with col_button:
-        if st.button("🗑️", key="clear_img", help="Remover imagem"):
-            st.session_state.current_image = None
-            st.rerun()
-
-# ---------- LÓGICA DE ENVIO ----------
-if prompt or st.session_state.current_image:
-    if not st.session_state.pdf_content:
-        st.error("❌ Selecione uma matéria (PDF) primeiro!")
+# ---------- Exibir Histórico de Mensagens ----------
+for message in st.session_state.messages:
+    if message["role"] == "user":
+        pergunta_limpa = re.sub(r'<[^>]+>', '', message["content"].replace('</div>', '').replace('<div>', '').replace('<br>', ' ')).strip()
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        # Salvar mensagem do usuário
-        user_msg = {
-            "role": "user", 
-            "content": prompt if prompt else "(Questão enviada via imagem)",
-            "image_data": st.session_state.current_image
-        }
-        st.session_state.messages.append(user_msg)
-        
-        # Exibir imediatamente no chat (UX)
-        with chat_container:
-            html_content = f"<strong>👤 Você:</strong><br>{prompt if prompt else '(Questão enviada via imagem)'}"
-            if st.session_state.current_image:
-                b64_img = base64.b64encode(st.session_state.current_image).decode()
-                html_content += f'<br><img src="data:image/jpeg;base64,{b64_img}" class="chat-image-preview">'
-            
-            st.markdown(f"""
-            <div class="user-message">
-                {html_content}
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Preparar dados para API
-        texto_limitado = st.session_state.pdf_content[:100000]
-        
-        # Construir prompt considerando se há imagem ou não
-        if st.session_state.current_image:
-            instruction_msg = """
-Você é um professor assistente. 
-1. Analise a IMAGEM anexada para identificar a questão.
-2. Use o MATERIAL DE ESTUDO (texto abaixo) para responder.
-3. Siga o formato de resposta estrito (marcar correta, sem justificativa longa).
-"""
-            images_payload = [st.session_state.current_image]
-        else:
-            instruction_msg = """
-Você é um professor assistente.
-1. Responda APENAS com base no conteúdo do material fornecido abaixo.
-2. A pergunta está no texto 'PERGUNTA DO ALUNO'.
-3. Siga o formato de resposta estrito.
-"""
-            images_payload = []
+        resposta_formatada = formatar_resposta(message["content"])
+        st.markdown(f"""
+        <div class="assistant-message">
+            <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+        </div>
+        """, unsafe_allow_html=True)
 
-        full_prompt = f"""
-{instruction_msg}
+# ---------- Área de Input: Chat + Upload de Foto ----------
+st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)  # Espaçamento para o topo fixo
+
+# Colunas para input de texto e botão de foto
+input_col, upload_col = st.columns([4, 1])
+
+with input_col:
+    prompt = st.chat_input("Envie suas questões sobre a matéria selecionada")
+
+with upload_col:
+    uploaded_file = st.file_uploader(
+        "📷", 
+        type=['png', 'jpg', 'jpeg', 'webp'],
+        help="Enviar foto da questão",
+        key="image_uploader",
+        label_visibility="collapsed"
+    )
+
+# Processar imagem enviada
+if uploaded_file is not None and uploaded_file != st.session_state.get("last_uploaded_file"):
+    st.session_state.last_uploaded_file = uploaded_file
+    st.session_state.uploaded_image_text = None  # Resetar para novo processamento
+    
+    with st.spinner("🔍 Lendo imagem com OCR..."):
+        ocr_reader = load_ocr_reader()
+        texto_imagem, erro = extract_text_from_image(uploaded_file, ocr_reader)
+        
+        if erro:
+            st.warning(f"⚠️ {erro}")
+        else:
+            st.session_state.uploaded_image_text = texto_imagem
+            st.success("✅ Texto extraído! Clique em 'Enviar' para enviar a pergunta.")
+            # Auto-preencher o prompt com o texto extraído (opcional)
+            # prompt = texto_imagem  # Não funciona diretamente, veja alternativa abaixo
+
+# Dica: Como o st.chat_input não pode ser preenchido programaticamente,
+# mostramos uma mensagem informativa se houver texto extraído
+if st.session_state.uploaded_image_text and not prompt:
+    st.info(f"📋 **Texto extraído da imagem:**\n\n_{st.session_state.uploaded_image_text[:200]}..._\n\nDigite ou cole no chat acima e envie!")
+
+# ---------- Processar Mensagem do Usuário ----------
+if prompt:
+    # Usar texto da imagem se disponível e o prompt estiver vazio ou for genérico
+    final_prompt = prompt
+    if st.session_state.uploaded_image_text and len(prompt.strip()) < 10:
+        # Se o usuário digitou pouco e há texto da imagem, usa o texto OCR
+        final_prompt = st.session_state.uploaded_image_text
+        st.session_state.uploaded_image_text = None  # Consumir para não reutilizar
+    
+    if not st.session_state.pdf_content:
+        st.error("❌ Selecione uma matéria primeiro!")
+    else:
+        st.session_state.messages.append({"role": "user", "content": final_prompt})
+        
+        pergunta_limpa = re.sub(r'<[^>]+>', '', final_prompt.replace('</div>', '').replace('<div>', '').replace('<br>', ' ')).strip()
+        
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.spinner("Analisando..."):
+            try:
+                texto_limitado = st.session_state.pdf_content[:100000]
+                
+                full_prompt = f"""
+Você é um professor assistente especializado em {st.session_state.materia_nome}.
+
+INSTRUÇÕES OBRIGATÓRIAS:
+1. Responda APENAS com base no conteúdo do material fornecido abaixo
+2. RETORNE A QUESTÃO COMPLETA (pergunta + TODAS as alternativas)
+3. Indique qual alternativa está correta usando **CORRETA** após a alternativa
+4. NÃO adicione justificativas, explicações extras ou comentários
+5. Formato EXATO para múltipla escolha:
+   - Retorne a pergunta completa
+   - Retorne TODAS as alternativas (A, B, C, D, E)
+   - Após a correta, escreva: " **CORRETA**"
+   - Exemplo: "D) 800 metros, devido ao risco... **CORRETA**"
+6. Para V/F: "✅ VERDADEIRO **CORRETO**" ou "❌ FALSO **INCORRETO**"
+7. Para enumeração: "1. Item **CORRETO**"
+8. Para questões abertas: "Resposta: **resposta correta**"
+9. Se não encontrar: "Não encontrei essa informação no material"
 
 MATERIAL DE ESTUDO:
 {texto_limitado}
 
 PERGUNTA DO ALUNO:
-{prompt if prompt else "Veja a imagem anexa."}
+{final_prompt}
 
 RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
 """
-        
-        with st.spinner("Analisando..."):
-            try:
+                
                 response = co.chat(
-                    model="command-r-plus", 
+                    model="command-a-03-2025",
                     message=full_prompt,
-                    images=images_payload,
                     temperature=0.3,
                     max_tokens=2048,
                     preamble="Você é um assistente útil e preciso."
@@ -328,28 +324,23 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
                 resposta_formatada = formatar_resposta(resposta)
-                
-                with chat_container:
-                    st.markdown(f"""
-                    <div class="assistant-message">
-                        <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                # Limpar imagem após envio
-                st.session_state.current_image = None
-                st.rerun()
+                st.markdown(f"""
+                <div class="assistant-message">
+                    <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+                </div>
+                """, unsafe_allow_html=True)
                 
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
-                st.session_state.current_image = None
 
-# ---------- BOTÃO LIMPAR HISTÓRICO ----------
+# ---------- Botão Limpar Histórico ----------
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
-        st.session_state.current_image = None
+        st.session_state.uploaded_image_text = None
+        if "last_uploaded_file" in st.session_state:
+            del st.session_state.last_uploaded_file
         st.rerun()
