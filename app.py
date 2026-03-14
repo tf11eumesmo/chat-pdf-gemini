@@ -9,20 +9,60 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
+/* Esconder header padrão do Streamlit */
+header {visibility: hidden !important;}
 
-header {visibility: hidden;}
+/* REMOVER BOTÃO DE TOGGLE DA SIDEBAR */
+button[data-testid="stBaseButton-headerNoPadding"],
+button[kind="headerNoPadding"],
+.stApp > header > button:first-of-type,
+[data-testid="stSidebarCollapsedControl"],
+.stApp [data-testid="stSidebar"] + div > header button,
+.stApp header button[aria-label*="sidebar"],
+.stApp button[data-testid="stCollapseButton"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
 hr {
     display: none !important;
 }
 
-.block-container {
-    padding-top: 150px;
+/* SIDEBAR FIXA */
+section[data-testid="stSidebar"] {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    height: 100vh !important;
+    width: 300px !important;
+    z-index: 1000 !important;
+    padding-top: 80px !important;
+    overflow-y: auto !important;
+    background: white !important;
+    border-right: 1px solid #ddd !important;
+    transform: none !important;
+    transition: none !important;
+}
+
+/* Garantir que o conteúdo da sidebar não seja cortado */
+section[data-testid="stSidebar"] > div {
+    height: 100% !important;
+    padding: 10px !important;
+}
+
+/* AJUSTE DO CONTEÚDO PRINCIPAL */
+.main .block-container {
+    padding-top: 150px !important;
+    padding-left: 320px !important;
+    margin-left: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
 }
 
 /* TOPO FIXO */
-
 .top-fixed {
     position: fixed;
     top: 0;
@@ -56,7 +96,6 @@ hr {
 }
 
 /* CHAT */
-
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -85,6 +124,21 @@ hr {
 }
 
 .stSelectbox label { font-weight: 600; }
+
+/* RESPONSIVO PARA TELAS MENORES */
+@media (max-width: 768px) {
+    section[data-testid="stSidebar"] {
+        width: 100% !important;
+        position: relative !important;
+        height: auto !important;
+    }
+    .top-fixed {
+        left: 0 !important;
+    }
+    .main .block-container {
+        padding-left: 20px !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -117,8 +171,6 @@ with st.sidebar:
         selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0)
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
-    
-    # st.divider() foi removido implicitamente pelo CSS, mas podemos manter a lógica da API Key abaixo
     
     if "COHERE_API_KEY" not in st.secrets:
         st.error("❌ COHERE_API_KEY não configurada")
@@ -191,8 +243,6 @@ st.markdown(f"""
 
 </div>
 """, unsafe_allow_html=True)
-
-# st.divider() removido aqui também pois o CSS esconde todas as linhas
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
