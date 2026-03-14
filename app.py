@@ -37,7 +37,7 @@ button[kind="headerNoPadding"] {
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px; /* Ajuste conforme a largura da sidebar se necessário */
+    left: 300px;
     right: 0;
     background: white;
     z-index: 999;
@@ -184,17 +184,13 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
 st.markdown(f"""
 <div class="top-fixed">
 
-<div class="main-title">
-📚 Selecione uma matéria e faça perguntas sobre o conteúdo!
-</div>
-
 <div class="materia-info">
 <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
 <small>{st.session_state.caracteres_count:,} caracteres</small>
 </div>
 
 <div class="chat-title">
-💬 Chat de Dúvidas
+💬 Chat de Questões
 </div>
 
 </div>
