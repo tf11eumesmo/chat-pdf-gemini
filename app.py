@@ -10,35 +10,45 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 st.markdown("""
 <style>
 
-/* OCULTAR CABEÇALHO PADRÃO E BOTÃO DE MENU LATERAL */
+/* OCULTAR CABEÇALHO PADRÃO DO STREAMLIT */
 header {visibility: hidden;}
-button[data-testid="baseButton-header"] {visibility: hidden;}
-
-/* GARANTIR QUE A SIDEBAR FIQUE FIXA E SEM BOTÃO DE FECHAR */
-section[data-testid="stSidebar"] {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    width: 300px !important; /* Largura fixa da sidebar */
-    z-index: 1000;
-    background-color: #f8f9fa;
-    border-right: 1px solid #ddd;
-}
-
-/* AJUSTAR O CONTEÚDO PRINCIPAL PARA NÃO FICAR EMBAIXO DA SIDEBAR */
-.main > div:first-child {
-    margin-left: 300px !important;
-    width: calc(100% - 300px) !important;
-}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
 hr {
     display: none !important;
 }
 
+/* --- CONFIGURAÇÃO DA SIDEBAR FIXA --- */
+
+/* Esconde o botão de menu (o 'X' ou ícone de hambúrguer) */
+button[kind="header"] {
+    visibility: hidden;
+    display: none;
+}
+
+/* Garante que a sidebar tenha largura fixa e não colapse */
+section[data-testid="stSidebar"] {
+    width: 300px !important; /* Largura fixa */
+    min-width: 300px !important;
+    max-width: 300px !important;
+    position: fixed; /* Fixa na tela */
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border-right: 1px solid #ddd;
+    z-index: 1000;
+}
+
+/* Ajuste do container principal para não ficar embaixo da sidebar fixa */
+.main > div:first-child {
+    margin-left: 300px !important;
+    width: calc(100% - 300px);
+}
+
+/* Ajuste fino para o bloco de conteúdo */
 .block-container {
     padding-top: 150px;
+    margin-left: 0 !important; /* Já controlado pelo .main acima */
 }
 
 /* TOPO FIXO */
@@ -51,6 +61,7 @@ hr {
     z-index: 999;
     border-bottom: 1px solid #ddd;
     padding: 15px 40px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .main-title {
