@@ -6,25 +6,57 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS MINIMALISTA ----------
+# ---------- CSS ----------
 st.markdown("""
 <style>
-/* Esconder elementos padrão do Streamlit */
+
 header {visibility: hidden;}
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
 
-/* Remover divisórias */
-hr {display: none !important;}
-
-/* Container principal do chat */
-.chat-container {
-    padding: 20px 0;
-    max-width: 900px;
-    margin: 0 auto;
+/* REMOVER LINHAS DIVISÓRIAS (HR) */
+hr {
+    display: none !important;
 }
 
-/* Mensagens do chat */
+.block-container {
+    padding-top: 150px;
+}
+
+/* TOPO FIXO */
+
+.top-fixed {
+    position: fixed;
+    top: 0;
+    left: 300px;
+    right: 0;
+    background: white;
+    z-index: 999;
+    border-bottom: 1px solid #ddd;
+    padding: 15px 40px;
+}
+
+.main-title {
+    font-size: 1.35rem;
+    font-weight: 600;
+}
+
+.chat-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 8px;
+    text-align: center;
+}
+
+.materia-info {
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+    padding: 10px 12px;
+    border-radius: 5px;
+    margin-top: 8px;
+    color: #155724;
+}
+
+/* CHAT */
+
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -41,7 +73,6 @@ hr {display: none !important;}
     margin: 10px 0;
 }
 
-/* Destaque para resposta correta */
 .correct-answer {
     background-color: #d4edda;
     border-left: 4px solid #28a745;
@@ -53,115 +84,52 @@ hr {display: none !important;}
     display: block;
 }
 
-/* Container do topo com seleção */
-.top-selector-container {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 25px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.top-selector-container .stSelectbox label {
-    color: white;
-    font-weight: 600;
-    font-size: 1.1rem;
-}
-
-.top-selector-container .stSelectbox > div {
-    background: white !important;
-    border-radius: 8px;
-}
-
-.materia-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background-color: rgba(255,255,255,0.95);
-    padding: 10px 16px;
-    border-radius: 8px;
-    margin-top: 12px;
-    font-weight: 500;
-    color: #2d3748;
-}
-
-.chat-header {
-    text-align: center;
-    padding: 15px 0;
-    margin: 10px 0 25px 0;
-    border-bottom: 2px solid #e2e8f0;
-}
-
-.chat-header h2 {
-    margin: 0;
-    color: #4a5568;
-    font-size: 1.4rem;
-}
-
-/* Input do chat centralizado */
-.stChatInputContainer {
-    max-width: 900px;
-    margin: 20px auto !important;
-    padding: 0 20px;
-}
+.stSelectbox label { font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- LÓGICA DE PDFs ----------
-pdf_folder = Path("pdfs")
-if not pdf_folder.exists():
-    pdf_folder.mkdir(parents=True, exist_ok=True)
-
-pdf_files = []
-try:
-    for item in pdf_folder.iterdir():
-        if item.is_file() and item.suffix.lower() == ".pdf":
-            pdf_files.append(item)
-except Exception as e:
-    st.error(f"Erro ao listar PDFs: {e}")
-
-# ---------- CONTAINER DE SELEÇÃO NO TOPO ----------
-with st.container():
-    col_sel1, col_sel2, col_sel3 = st.columns([1, 3, 1])
-    with col_sel2:
-        st.markdown('<div class="top-selector-container">', unsafe_allow_html=True)
+with st.sidebar:
+    st.header("📖 Escolha a matéria:")
+    
+    pdf_folder = Path("pdfs")
+    if not pdf_folder.exists():
+        pdf_folder.mkdir(parents=True, exist_ok=True)
+    
+    pdf_files = []
+    try:
+        for item in pdf_folder.iterdir():
+            if item.is_file() and item.suffix.lower() == ".pdf":
+                pdf_files.append(item)
+    except Exception as e:
+        st.error(f"Erro ao listar PDFs: {e}")
+    
+    if len(pdf_files) == 0:
+        st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
+        selected_pdf = None
+        selected_materia = None
+    else:
+        pdf_options = {}
+        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+            nome_original = pdf_path.name
+            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
         
-        if len(pdf_files) == 0:
-            st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
-            selected_pdf = None
-            selected_materia = None
-        else:
-            pdf_options = {}
-            for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-                nome_original = pdf_path.name
-                nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-                pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-            
-            selected_materia = st.selectbox("📖 Escolha a matéria:", options=list(pdf_options.keys()), index=0)
-            selected_pdf_info = pdf_options[selected_materia]
-            selected_pdf = selected_pdf_info['path']
-            
-            # Badge da matéria atual
-            st.markdown(f'''
-            <div class="materia-badge">
-                📚 <strong>Matéria Atual:</strong> {selected_materia}
-            </div>
-            ''', unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+        selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0)
+        selected_pdf_info = pdf_options[selected_materia]
+        selected_pdf = selected_pdf_info['path']
+    
+    # st.divider() foi removido implicitamente pelo CSS, mas podemos manter a lógica da API Key abaixo
+    
+    if "COHERE_API_KEY" not in st.secrets:
+        st.error("❌ COHERE_API_KEY não configurada")
+        st.stop()
+    
+    try:
+        co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
+    except Exception as e:
+        st.error(f"❌ Erro na API: {e}")
+        st.stop()
 
-# ---------- API COHERE ----------
-if "COHERE_API_KEY" not in st.secrets:
-    st.error("❌ COHERE_API_KEY não configurada")
-    st.stop()
-
-try:
-    co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
-except Exception as e:
-    st.error(f"❌ Erro na API: {e}")
-    st.stop()
-
-# ---------- SESSION STATE ----------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -173,7 +141,6 @@ if "materia_nome" not in st.session_state:
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
 
-# ---------- FUNÇÃO DE EXTRAÇÃO ----------
 def extract_pdf_text(pdf_path):
     try:
         reader = PdfReader(str(pdf_path))
@@ -191,7 +158,6 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
-# Carregar PDF quando mudar a seleção
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -205,17 +171,37 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.materia_nome = selected_materia
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
-        st.rerun()  # Rerun para limpar mensagens antigas
 
-# ---------- CABEÇALHO DO CHAT ----------
-st.markdown('<div class="chat-header"><h2>💬 Chat de Dúvidas</h2></div>', unsafe_allow_html=True)
+# ---------- TOPO FIXO ----------
+st.markdown(f"""
+<div class="top-fixed">
 
-# ---------- FUNÇÃO DE FORMATAÇÃO ----------
+<div class="main-title">
+📚 Selecione uma matéria e faça perguntas sobre o conteúdo!
+</div>
+
+<div class="materia-info">
+<strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+<small>{st.session_state.caracteres_count:,} caracteres</small>
+</div>
+
+<div class="chat-title">
+💬 Chat de Dúvidas
+</div>
+
+</div>
+""", unsafe_allow_html=True)
+
+# st.divider() removido aqui também pois o CSS esconde todas as linhas
+
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
     
-    texto = texto.replace('</div>', '').replace('<div>', '').replace('<br>', '\n')
-    texto = re.sub(r'<[^>]+>', '', texto).strip()
+    texto = texto.replace('</div>', '')
+    texto = texto.replace('<div>', '')
+    texto = texto.replace('<br>', '\n')
+    texto = re.sub(r'<[^>]+>', '', texto)
+    texto = texto.strip()
     
     padroes_correta = [
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
@@ -243,49 +229,64 @@ def formatar_resposta(texto):
     texto = re.sub(
         r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*',
         r'\1<span class="correct-answer">✅ \2</span>',
-        texto, flags=re.IGNORECASE
+        texto,
+        flags=re.IGNORECASE
     )
     
     texto = re.sub(
         r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*',
         r'<span class="correct-answer">✅ Resposta: \2</span>',
-        texto, flags=re.IGNORECASE
+        texto,
+        flags=re.IGNORECASE
     )
     
     texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
     texto = re.sub(r'(\n|^)(V|v)\)\s*', r'\1<strong>V)</strong> ', texto)
     texto = re.sub(r'(\n|^)(F|f)\)\s*', r'\1<strong>F)</strong> ', texto)
     
-    texto = texto.replace('**', '').replace('\n', '<br>')
+    texto = texto.replace('**', '')
+    texto = texto.replace('\n', '<br>')
+    
     return texto
 
-# ---------- EXIBIR MENSAGENS ----------
-with st.container():
-    chat_col1, chat_col2, chat_col3 = st.columns([1, 4, 1])
-    with chat_col2:
-        for message in st.session_state.messages:
-            if message["role"] == "user":
-                pergunta_limpa = re.sub(r'<[^>]+>', '', message["content"].replace('<br>', ' ')).strip()
-                st.markdown(f'<div class="user-message"><strong>👤 Você:</strong><br>{pergunta_limpa}</div>', unsafe_allow_html=True)
-            else:
-                resposta_formatada = formatar_resposta(message["content"])
-                st.markdown(f'<div class="assistant-message"><strong>🤖 Assistente:</strong><br>{resposta_formatada}</div>', unsafe_allow_html=True)
+for message in st.session_state.messages:
+    if message["role"] == "user":
+        pergunta_limpa = message["content"]
+        pergunta_limpa = pergunta_limpa.replace('</div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
+        pergunta_limpa = pergunta_limpa.strip()
+        
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        resposta_formatada = formatar_resposta(message["content"])
+        st.markdown(f"""
+        <div class="assistant-message">
+            <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+        </div>
+        """, unsafe_allow_html=True)
 
-# ---------- INPUT DO CHAT ----------
-if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada..."):
+if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        pergunta_limpa = re.sub(r'<[^>]+>', '', prompt.replace('<br>', ' ')).strip()
+        pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
         
-        with st.container():
-            chat_col1, chat_col2, chat_col3 = st.columns([1, 4, 1])
-            with chat_col2:
-                st.markdown(f'<div class="user-message"><strong>👤 Você:</strong><br>{pergunta_limpa}</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
+        </div>
+        """, unsafe_allow_html=True)
         
-        with st.spinner("🔍 Analisando conteúdo..."):
+        with st.spinner("Analisando..."):
             try:
                 texto_limitado = st.session_state.pdf_content[:100000]
                 
@@ -301,6 +302,7 @@ INSTRUÇÕES OBRIGATÓRIAS:
    - Retorne a pergunta completa
    - Retorne TODAS as alternativas (A, B, C, D, E)
    - Após a correta, escreva: " **CORRETA**"
+   - Exemplo: "D) 800 metros, devido ao risco... **CORRETA**"
 6. Para V/F: "✅ VERDADEIRO **CORRETO**" ou "❌ FALSO **INCORRETO**"
 7. Para enumeração: "1. Item **CORRETO**"
 8. Para questões abertas: "Resposta: **resposta correta**"
@@ -325,23 +327,20 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 resposta = response.text
                 
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
-                
-                with st.container():
-                    chat_col1, chat_col2, chat_col3 = st.columns([1, 4, 1])
-                    with chat_col2:
-                        resposta_formatada = formatar_resposta(resposta)
-                        st.markdown(f'<div class="assistant-message"><strong>🤖 Assistente:</strong><br>{resposta_formatada}</div>', unsafe_allow_html=True)
+                resposta_formatada = formatar_resposta(resposta)
+                st.markdown(f"""
+                <div class="assistant-message">
+                    <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+                </div>
+                """, unsafe_allow_html=True)
                 
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# ---------- BOTÃO LIMPAR HISTÓRICO ----------
-with st.container():
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 4, 1])
-    with col_btn2:
-        if st.session_state.messages:
-            if st.button("🗑️ Limpar Histórico", use_container_width=True):
-                st.session_state.messages = []
-                st.rerun()
+col1, col2, col3 = st.columns([1, 4, 1])
+with col2:
+    if st.button("🗑️ Limpar Histórico", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
