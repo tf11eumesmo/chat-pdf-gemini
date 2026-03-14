@@ -18,7 +18,7 @@ hr {
 }
 
 .block-container {
-    padding-top: 180px;
+    padding-top: 200px;
 }
 
 /* TOPO FIXO */
@@ -30,20 +30,21 @@ hr {
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 15px 40px;
+    padding: 10px 40px;
 }
 
 .header-row {
     display: flex;
     align-items: center;
-    gap: 15px;
-    margin-bottom: 8px;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
 .main-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     white-space: nowrap;
+    margin: 0;
 }
 
 .materia-info {
@@ -89,12 +90,12 @@ hr {
     display: block;
 }
 
-/* Selectbox inline */
+/* Selectbox inline compacto */
 .stSelectbox {
-    min-width: 250px;
+    min-width: 200px;
 }
 .stSelectbox > div {
-    min-width: 250px;
+    min-width: 200px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -164,10 +165,10 @@ selected_pdf = None
 selected_materia = None
 
 if len(pdf_options) > 0:
-    # Selectbox no topo fixo
+    # Selectbox no topo (antes do top-fixed para aparecer visualmente acima)
     col_label, col_select = st.columns([2, 3], gap="small")
     with col_label:
-        st.markdown('<div class="main-title" style="padding-top:10px;">📖 Escolha a matéria:</div>', unsafe_allow_html=True)
+        st.markdown('<p class="main-title">📖 Escolha a matéria:</p>', unsafe_allow_html=True)
     with col_select:
         selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
         selected_pdf_info = pdf_options[selected_materia]
