@@ -18,7 +18,7 @@ hr {
 }
 
 .block-container {
-    padding-top: 120px;
+    padding-top: 180px;
 }
 
 /* TOPO FIXO */
@@ -33,23 +33,18 @@ hr {
     padding: 15px 40px;
 }
 
-.main-title-row {
+.select-row {
     display: flex;
     align-items: center;
     gap: 15px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
-.main-title-label {
+.select-label {
     font-size: 1.1rem;
     font-weight: 600;
     white-space: nowrap;
-}
-
-.chat-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-top: 8px;
+    color: #333;
 }
 
 .materia-info {
@@ -57,9 +52,15 @@ hr {
     border-left: 4px solid #28a745;
     padding: 8px 12px;
     border-radius: 5px;
-    margin-top: 8px;
+    margin-bottom: 8px;
     color: #155724;
     font-size: 0.9rem;
+}
+
+.chat-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #666;
 }
 
 /* CHAT */
@@ -92,15 +93,16 @@ hr {
 
 /* Selectbox inline styling */
 .stSelectbox {
-    min-width: 250px;
+    flex: 1;
+    min-width: 200px;
 }
 .stSelectbox > div {
-    min-width: 250px;
+    min-width: 200px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SELEÇÃO DE MATÉRIA (INLINE - FORA DA SIDEBAR) ----------
+# ---------- SELEÇÃO DE MATÉRIA ----------
 pdf_folder = Path("pdfs")
 if not pdf_folder.exists():
     pdf_folder.mkdir(parents=True, exist_ok=True)
@@ -113,25 +115,21 @@ try:
 except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
-# Layout inline: Label + Selectbox na mesma linha
-col_label, col_select = st.columns([1, 4], gap="small")
-with col_label:
-    st.markdown('<div class="main-title-label">📖 Escolha a matéria:</div>', unsafe_allow_html=True)
-with col_select:
-    if len(pdf_files) == 0:
-        st.warning("⚠️ Nenhum PDF encontrado")
-        selected_pdf = None
-        selected_materia = None
-    else:
-        pdf_options = {}
-        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-            nome_original = pdf_path.name
-            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-        
-        selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
-        selected_pdf_info = pdf_options[selected_materia]
-        selected_pdf = selected_pdf_info['path']
+# Processar opções de PDF
+if len(pdf_files) == 0:
+    selected_pdf = None
+    selected_materia = None
+    pdf_options = {}
+else:
+    pdf_options = {}
+    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+        nome_original = pdf_path.name
+        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+        pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
+    
+    selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
+    selected_pdf_info = pdf_options[selected_materia]
+    selected_pdf = selected_pdf_info['path']
 
 # API Key check
 if "COHERE_API_KEY" not in st.secrets:
@@ -187,9 +185,15 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ---------- TOPO FIXO ----------
+# ---------- TOPO FIXO COM SELECTBOX ----------
 st.markdown(f"""
 <div class="top-fixed">
+    <div class="select-row">
+        <div class="select-label">📖 Escolha a matéria:</div>
+        <div class="select-container">
+            {st.selectbox("", options=list(pdf_options.keys()) if pdf_options else [""], index=0, key="materia_select_top", label_visibility="collapsed")}
+        </div>
+    </div>
     <div class="materia-info">
         <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
         <small>{st.session_state.caracteres_count:,} caracteres</small>
