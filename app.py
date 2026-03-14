@@ -6,7 +6,7 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS ----------
+# ---------- CSS REFORÇADO ----------
 st.markdown("""
 <style>
 
@@ -18,44 +18,61 @@ hr {
     display: none !important;
 }
 
-/* --- CONFIGURAÇÃO DA SIDEBAR FIXA --- */
+/* --- SIDEBAR TRAVADA E FIXA (SEM BOTÃO DE FECHAR) --- */
 
-/* Esconde o botão de menu (o 'X' ou ícone de hambúrguer) */
-button[kind="header"] {
-    visibility: hidden;
-    display: none;
+/* 1. Esconde o botão de colapso específico pelo data-testid */
+div[data-testid="stSidebarCollapseButton"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
-/* Garante que a sidebar tenha largura fixa e não colapse */
+/* 2. Esconde qualquer botão de header dentro da sidebar como segurança extra */
+section[data-testid="stSidebar"] button[kind="header"],
+section[data-testid="stSidebar"] button[kind="headerNoPadding"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* 3. Força a sidebar a ter largura fixa e não colapsar */
 section[data-testid="stSidebar"] {
-    width: 300px !important; /* Largura fixa */
+    width: 300px !important;
     min-width: 300px !important;
     max-width: 300px !important;
-    position: fixed; /* Fixa na tela */
-    height: 100vh;
-    overflow-y: auto;
-    background-color: #f8f9fa;
-    border-right: 1px solid #ddd;
-    z-index: 1000;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    height: 100vh !important;
+    overflow-y: auto !important;
+    background-color: #f8f9fa !important;
+    border-right: 1px solid #ddd !important;
+    z-index: 1000 !important;
+    transform: none !important; /* Impede animações de deslizamento */
 }
 
-/* Ajuste do container principal para não ficar embaixo da sidebar fixa */
+/* 4. Garante que o container principal respeite a sidebar fixa */
 .main > div:first-child {
     margin-left: 300px !important;
-    width: calc(100% - 300px);
+    width: calc(100% - 300px) !important;
+    max-width: calc(100% - 300px) !important;
 }
 
-/* Ajuste fino para o bloco de conteúdo */
+/* Ajuste do bloco de conteúdo */
 .block-container {
     padding-top: 150px;
-    margin-left: 0 !important; /* Já controlado pelo .main acima */
+    padding-left: 2rem;
+    padding-right: 2rem;
 }
 
 /* TOPO FIXO */
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px; /* Mesma largura da sidebar */
+    left: 300px; /* Alinhado com a largura da sidebar */
     right: 0;
     background: white;
     z-index: 999;
@@ -67,6 +84,7 @@ section[data-testid="stSidebar"] {
 .main-title {
     font-size: 1.35rem;
     font-weight: 600;
+    color: #333;
 }
 
 .chat-title {
@@ -74,6 +92,7 @@ section[data-testid="stSidebar"] {
     font-weight: 600;
     margin-top: 8px;
     text-align: center;
+    color: #555;
 }
 
 .materia-info {
@@ -83,6 +102,7 @@ section[data-testid="stSidebar"] {
     border-radius: 5px;
     margin-top: 8px;
     color: #155724;
+    font-size: 0.9rem;
 }
 
 /* CHAT */
@@ -114,6 +134,11 @@ section[data-testid="stSidebar"] {
 }
 
 .stSelectbox label { font-weight: 600; }
+
+/* Remove margens extras que o Streamlit às vezes adiciona */
+div[data-testid="stSidebar"] > div {
+    padding-top: 1rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
