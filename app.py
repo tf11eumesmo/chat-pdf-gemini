@@ -6,7 +6,7 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS REFORÇADO ----------
+# ---------- CSS CORRIGIDO ----------
 st.markdown("""
 <style>
 
@@ -18,27 +18,22 @@ hr {
     display: none !important;
 }
 
-/* --- SIDEBAR TRAVADA E FIXA (SEM BOTÃO DE FECHAR) --- */
+/* --- SIDEBAR TRAVADA E FIXA --- */
 
-/* 1. Esconde o botão de colapso específico pelo data-testid */
+/* Esconde o botão de colapso */
 div[data-testid="stSidebarCollapseButton"] {
     display: none !important;
     visibility: hidden !important;
     pointer-events: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
 }
 
-/* 2. Esconde qualquer botão de header dentro da sidebar como segurança extra */
 section[data-testid="stSidebar"] button[kind="header"],
 section[data-testid="stSidebar"] button[kind="headerNoPadding"] {
     display: none !important;
     visibility: hidden !important;
 }
 
-/* 3. Força a sidebar a ter largura fixa e não colapsar */
+/* Sidebar fixa com largura definida */
 section[data-testid="stSidebar"] {
     width: 300px !important;
     min-width: 300px !important;
@@ -51,28 +46,33 @@ section[data-testid="stSidebar"] {
     background-color: #f8f9fa !important;
     border-right: 1px solid #ddd !important;
     z-index: 1000 !important;
-    transform: none !important; /* Impede animações de deslizamento */
+    transform: none !important;
 }
 
-/* 4. Garante que o container principal respeite a sidebar fixa */
+/* --- CONTEÚDO PRINCIPAL AJUSTADO --- */
+
+/* Container principal deve começar após a sidebar */
 .main > div:first-child {
     margin-left: 300px !important;
     width: calc(100% - 300px) !important;
     max-width: calc(100% - 300px) !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
 }
 
 /* Ajuste do bloco de conteúdo */
 .block-container {
     padding-top: 150px;
-    padding-left: 2rem;
-    padding-right: 2rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    max-width: 100% !important;
 }
 
 /* TOPO FIXO */
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px; /* Alinhado com a largura da sidebar */
+    left: 300px;
     right: 0;
     background: white;
     z-index: 999;
@@ -135,9 +135,16 @@ section[data-testid="stSidebar"] {
 
 .stSelectbox label { font-weight: 600; }
 
-/* Remove margens extras que o Streamlit às vezes adiciona */
+/* Remove padding extra da sidebar */
 div[data-testid="stSidebar"] > div {
     padding-top: 1rem;
+}
+
+/* Garante que o chat input não fique sobreposto */
+.stChatInputContainer {
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
