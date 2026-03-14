@@ -9,7 +9,7 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
-/* Esconder header padrão do Streamlit */
+
 header {visibility: hidden;}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
@@ -17,71 +17,50 @@ hr {
     display: none !important;
 }
 
-/* Ajuste do container principal */
 .block-container {
-    padding-top: 140px;
-    padding-bottom: 50px;
+    padding-top: 150px;
 }
 
-/* TOPO FIXO - PRIMEIRA LINHA */
+/* TOPO FIXO */
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 0;
+    left: 300px;
     right: 0;
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 10px 40px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* BARRA DO SELECTBOX - SEGUNDA LINHA */
-.selectbar-fixed {
-    position: fixed;
-    top: 52px;
-    left: 0;
-    right: 0;
-    background: #f8f9fa;
-    z-index: 998;
-    border-bottom: 1px solid #ddd;
-    padding: 8px 40px;
+    padding: 15px 40px;
 }
 
 .main-title {
-    font-size: 1.2rem;
+    font-size: 1.35rem;
     font-weight: 600;
-    color: #333;
 }
 
 .chat-title {
     font-size: 0.95rem;
     font-weight: 600;
-    color: #666;
+    margin-top: 8px;
+    text-align: center;
 }
 
 .materia-info {
     background-color: #d4edda;
     border-left: 4px solid #28a745;
-    padding: 6px 12px;
-    border-radius: 4px;
-    margin-top: 6px;
+    padding: 10px 12px;
+    border-radius: 5px;
+    margin-top: 8px;
     color: #155724;
-    font-size: 0.85rem;
-    display: inline-block;
 }
 
-/* Selectbox estilizado */
-.select-label {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: #333;
-    margin-right: 10px;
-    white-space: nowrap;
-}
-
-.select-container {
-    max-width: 500px;
+/* SELETOR DE MATÉRIA NA ÁREA PRINCIPAL */
+.materia-selector-container {
+    margin: 20px 40px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
 }
 
 /* CHAT */
@@ -112,24 +91,26 @@ hr {
     display: block;
 }
 
-/* Botão de limpar */
-.stButton > button {
-    width: 100%;
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 10px;
-    border-radius: 5px;
-    font-weight: 600;
-}
-
-.stButton > button:hover {
-    background-color: #c82333;
-}
+.stSelectbox label { font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SELEÇÃO DE MATÉRIA ----------
+# ---------- CONFIGURAÇÃO INICIAL (SIDEBAR) ----------
+with st.sidebar:
+    st.header("⚙️ Configurações")
+    
+    # Configuração da API Key
+    if "COHERE_API_KEY" not in st.secrets:
+        st.error("❌ COHERE_API_KEY não configurada")
+        st.stop()
+    
+    try:
+        co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
+    except Exception as e:
+        st.error(f"❌ Erro na API: {e}")
+        st.stop()
+
+# ---------- CARREGAR PDFs ----------
 pdf_folder = Path("pdfs")
 if not pdf_folder.exists():
     pdf_folder.mkdir(parents=True, exist_ok=True)
@@ -142,15 +123,14 @@ try:
 except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
-# Opções de PDF
 pdf_options = {}
-if len(pdf_files) > 0:
+if pdf_files:
     for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
         nome_original = pdf_path.name
         nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
         pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
 
-# Session state initialization
+# ---------- SESSION STATE ----------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -161,37 +141,6 @@ if "materia_nome" not in st.session_state:
     st.session_state.materia_nome = ""
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
-
-# Variáveis de seleção
-selected_materia = None
-selected_pdf = None
-
-if len(pdf_files) == 0:
-    st.warning("⚠️ Nenhum PDF encontrado na pasta `pdfs/`")
-else:
-    # Criar selectbox em um container
-    select_placeholder = st.empty()
-    with select_placeholder:
-        selected_materia = st.selectbox(
-            "",
-            options=list(pdf_options.keys()),
-            index=0,
-            key="materia_select",
-            label_visibility="collapsed"
-        )
-        selected_pdf_info = pdf_options[selected_materia]
-        selected_pdf = selected_pdf_info['path']
-
-# API Key check
-if "COHERE_API_KEY" not in st.secrets:
-    st.error("❌ COHERE_API_KEY não configurada")
-    st.stop()
-
-try:
-    co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
-except Exception as e:
-    st.error(f"❌ Erro na API: {e}")
-    st.stop()
 
 def extract_pdf_text(pdf_path):
     try:
@@ -210,7 +159,30 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
-# Carregar PDF quando mudar a seleção
+# ---------- SELETOR DE MATÉRIA NA ÁREA PRINCIPAL ----------
+# TOPO FIXO COM TÍTULO
+st.markdown("""
+<div class="top-fixed">
+    <div class="main-title">
+        📚 Selecione uma matéria e faça perguntas sobre o conteúdo!
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# SELETOR ABAIXO DO TOPO FIXO
+if not pdf_options:
+    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
+    selected_materia = None
+    selected_pdf = None
+else:
+    with st.container():
+        st.markdown('<div class="materia-selector-container">', unsafe_allow_html=True)
+        selected_materia = st.selectbox("📖 Escolha a matéria:", options=list(pdf_options.keys()), index=0)
+        selected_pdf_info = pdf_options[selected_materia]
+        selected_pdf = selected_pdf_info['path']
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------- ATUALIZAR CONTEÚDO DO PDF ----------
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -218,46 +190,27 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.pdf_content = ""
         st.session_state.current_pdf = None
         st.session_state.caracteres_count = 0
-        st.session_state.materia_nome = ""
     else:
         st.session_state.pdf_content = texto
         st.session_state.current_pdf = selected_pdf
         st.session_state.materia_nome = selected_materia
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
-        st.rerun()
+        st.rerun()  # Recarrega para atualizar a interface
 
-# ---------- TOPO FIXO ----------
-st.markdown(f"""
-<div class="top-fixed">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div>
-            <div class="main-title">📚 Chat com PDF</div>
-            <div class="materia-info">
-                <strong>Matéria:</strong> {st.session_state.materia_nome or "Nenhuma selecionada"} • 
-                <small>{st.session_state.caracteres_count:,} caracteres</small>
-            </div>
-        </div>
-        <div class="chat-title">💬 Chat de Dúvidas</div>
-    </div>
-</div>
-
-<div class="selectbar-fixed">
-    <div style="display: flex; align-items: center; gap: 10px;">
-        <span class="select-label">📖 Escolha a matéria:</span>
-        <div class="select-container">
-            <!-- Selectbox será injetado aqui -->
+# ---------- INFO DA MATÉRIA SELECIONADA ----------
+if st.session_state.materia_nome:
+    st.markdown(f"""
+    <div style="margin: 0 40px 20px 40px;">
+        <div class="materia-info">
+            <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+            <small>{st.session_state.caracteres_count:,} caracteres</small>
         </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
-
-# Renderizar selectbox na posição correta usando placeholder
-if len(pdf_files) > 0:
-    select_col1, select_col2, select_col3 = st.columns([1, 3, 1])
-    with select_col2:
-        # O selectbox já foi criado acima, mas vamos garantir que apareça na posição certa
-        pass
+    <div style="margin: 0 40px 20px 40px; text-align: center;" class="chat-title">
+        💬 Chat de Dúvidas
+    </div>
+    """, unsafe_allow_html=True)
 
 # ---------- FUNÇÃO DE FORMATAÇÃO ----------
 def formatar_resposta(texto):
@@ -315,7 +268,7 @@ def formatar_resposta(texto):
     
     return texto
 
-# ---------- RENDERIZAR HISTÓRICO DE MENSAGENS ----------
+# ---------- EXIBIR MENSAGENS ----------
 for message in st.session_state.messages:
     if message["role"] == "user":
         pergunta_limpa = message["content"]
@@ -326,14 +279,14 @@ for message in st.session_state.messages:
         pergunta_limpa = pergunta_limpa.strip()
         
         st.markdown(f"""
-        <div class="user-message">
+        <div style="margin: 0 40px;" class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
         </div>
         """, unsafe_allow_html=True)
     else:
         resposta_formatada = formatar_resposta(message["content"])
         st.markdown(f"""
-        <div class="assistant-message">
+        <div style="margin: 0 40px;" class="assistant-message">
             <strong>🤖 Assistente:</strong><br>{resposta_formatada}
         </div>
         """, unsafe_allow_html=True)
@@ -349,7 +302,7 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
         
         st.markdown(f"""
-        <div class="user-message">
+        <div style="margin: 0 40px;" class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
         </div>
         """, unsafe_allow_html=True)
@@ -397,7 +350,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
                 resposta_formatada = formatar_resposta(resposta)
                 st.markdown(f"""
-                <div class="assistant-message">
+                <div style="margin: 0 40px;" class="assistant-message">
                     <strong>🤖 Assistente:</strong><br>{resposta_formatada}
                 </div>
                 """, unsafe_allow_html=True)
@@ -407,7 +360,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# ---------- BOTÃO DE LIMPAR HISTÓRICO ----------
+# ---------- BOTÃO LIMPAR HISTÓRICO ----------
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
