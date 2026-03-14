@@ -20,6 +20,7 @@ hr {
 
 .block-container {
     padding-top: 150px;
+    padding-bottom: 100px;
 }
 
 /* BOTÃO DE FECHAR SIDEBAR (OCULTAR) */
@@ -95,6 +96,23 @@ button[kind="headerNoPadding"] {
 }
 
 .stSelectbox label { font-weight: 600; }
+
+/* TARJA FLUTUANTE INFERIOR */
+.bottom-fixed {
+    position: fixed;
+    bottom: 0;
+    left: 300px;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1));
+    z-index: 999;
+    pointer-events: none;
+}
+
+/* ESCONDER ELEMENTOS ABAIXO DO CHAT INPUT */
+.stChatInputContainer ~ div {
+    display: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -190,7 +208,7 @@ st.markdown(f"""
 </div>
 
 <div class="chat-title">
-💬 Chat de Questões
+💬 Chat de Dúvidas
 </div>
 
 </div>
@@ -346,3 +364,8 @@ with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
+
+# ---------- TARJA FLUTUANTE INFERIOR ----------
+st.markdown("""
+<div class="bottom-fixed"></div>
+""", unsafe_allow_html=True)
