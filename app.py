@@ -18,7 +18,7 @@ hr {
 }
 
 .block-container {
-    padding-top: 100px;
+    padding-top: 180px;
 }
 
 /* TOPO FIXO */
@@ -33,7 +33,7 @@ hr {
     padding: 15px 40px;
 }
 
-.main-row {
+.header-row {
     display: flex;
     align-items: center;
     gap: 15px;
@@ -46,19 +46,19 @@ hr {
     white-space: nowrap;
 }
 
-.chat-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-top: 4px;
-}
-
 .materia-info {
     background-color: #d4edda;
     border-left: 4px solid #28a745;
     padding: 8px 12px;
     border-radius: 5px;
+    margin-bottom: 8px;
     color: #155724;
     font-size: 0.9rem;
+}
+
+.chat-title {
+    font-size: 0.9rem;
+    font-weight: 600;
 }
 
 /* CHAT */
@@ -90,8 +90,11 @@ hr {
 }
 
 /* Selectbox inline */
-.selectbox-container {
-    min-width: 300px;
+.stSelectbox {
+    min-width: 250px;
+}
+.stSelectbox > div {
+    min-width: 250px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -109,21 +112,12 @@ try:
 except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
-selected_pdf = None
-selected_materia = None
-
-if len(pdf_files) == 0:
-    st.warning("⚠️ Nenhum PDF encontrado")
-else:
-    pdf_options = {}
+pdf_options = {}
+if len(pdf_files) > 0:
     for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
         nome_original = pdf_path.name
         nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
         pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-    
-    selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
-    selected_pdf_info = pdf_options[selected_materia]
-    selected_pdf = selected_pdf_info['path']
 
 # API Key check
 if "COHERE_API_KEY" not in st.secrets:
@@ -165,6 +159,21 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
+# Carregar PDF selecionado
+selected_pdf = None
+selected_materia = None
+
+if len(pdf_options) > 0:
+    # Selectbox no topo fixo
+    col_label, col_select = st.columns([2, 3], gap="small")
+    with col_label:
+        st.markdown('<div class="main-title" style="padding-top:10px;">📖 Escolha a matéria:</div>', unsafe_allow_html=True)
+    with col_select:
+        selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
+        selected_pdf_info = pdf_options[selected_materia]
+        selected_pdf = selected_pdf_info['path']
+
+# Atualizar conteúdo do PDF quando mudar a seleção
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -182,24 +191,13 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
-    <div class="main-row">
-        <span class="main-title">📖 Escolha a matéria:</span>
-        <div class="materia-info">
-            <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
-            <small>{st.session_state.caracteres_count:,} caracteres</small>
-        </div>
+    <div class="materia-info">
+        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome if st.session_state.materia_nome else "Nenhuma"} • 
+        <small>{st.session_state.caracteres_count:,} caracteres</small>
     </div>
     <div class="chat-title">💬 Chat de Dúvidas</div>
 </div>
 """, unsafe_allow_html=True)
-
-# Selectbox inline com o label
-col_label, col_select = st.columns([2, 5], gap="small")
-with col_label:
-    st.markdown('<div style="padding-top:8px;"><strong>📖 Escolha a matéria:</strong></div>', unsafe_allow_html=True)
-with col_select:
-    if len(pdf_files) > 0:
-        st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select_inline", label_visibility="collapsed")
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
