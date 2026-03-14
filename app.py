@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS Personalizado (apenas estilização importante)
+# CSS Personalizado
 st.markdown("""
 <style>
     .correct-answer {
@@ -24,9 +24,7 @@ st.markdown("""
         color: #155724;
         display: block;
     }
-    .correct-answer::before {
-        content: "✅ ";
-    }
+    .correct-answer::before { content: "✅ "; }
     .materia-info {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
@@ -35,9 +33,7 @@ st.markdown("""
         margin: 10px 0;
         color: #155724;
     }
-    .materia-info strong {
-        color: #155724;
-    }
+    .materia-info strong { color: #155724; }
     .user-message {
         background-color: #e3f2fd;
         border-left: 4px solid #2196f3;
@@ -52,9 +48,7 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
-    .stSelectbox label {
-        font-weight: 600;
-    }
+    .stSelectbox label { font-weight: 600; }
     .main-title {
         font-size: 1.5rem !important;
         font-weight: 600;
@@ -68,7 +62,6 @@ st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas
 
 # ==================== BARRA LATERAL ====================
 with st.sidebar:
-    # ✅ "Selecionar Matéria" NO TOPO da sidebar
     st.header("📖 Selecionar Matéria")
     
     pdf_folder = Path("pdfs")
@@ -107,10 +100,8 @@ with st.sidebar:
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
     
-    # Divider após seleção de matéria
     st.divider()
     
-    # Configurar API Key (apenas erro se falhar)
     if "GEMINI_API_KEY" not in st.secrets:
         st.error("❌ API Key não configurada")
         st.stop()
@@ -255,7 +246,8 @@ PERGUNTA:
 
 RESPOSTA (use **CORRETA** para destacar a alternativa certa):
 """
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                # ← ← ← MODELO ALTERADO PARA gemini-pro ← ← ←
+                model = genai.GenerativeModel('gemini-pro')
                 response = model.generate_content(full_prompt)
                 resposta = response.text
                 
