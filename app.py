@@ -12,8 +12,11 @@ st.markdown("""
 header {visibility: hidden;}
 
 .block-container {
-    padding-top: 140px;
+    padding-top: 180px;
+    padding-bottom: 120px;
 }
+
+/* ---------- TOPO FIXO ---------- */
 
 .top-fixed {
     position: fixed;
@@ -23,32 +26,19 @@ header {visibility: hidden;}
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 15px 30px;
+    padding: 15px 40px;
 }
 
 .main-title {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 600;
 }
 
 .chat-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     margin-top: 8px;
 }
-
-.correct-answer {
-    background-color: #d4edda;
-    border-left: 4px solid #28a745;
-    padding: 8px 12px;
-    border-radius: 5px;
-    margin: 6px 0;
-    font-weight: 600;
-    color: #155724;
-    display: block;
-}
-
-.correct-answer::before { content: "✅ "; }
 
 .materia-info {
     background-color: #d4edda;
@@ -58,6 +48,21 @@ header {visibility: hidden;}
     margin-top: 8px;
     color: #155724;
 }
+
+/* ---------- FOOTER FIXO ---------- */
+
+.bottom-fixed {
+    position: fixed;
+    bottom: 0;
+    left: 290px;
+    right: 0;
+    background: white;
+    border-top: 1px solid #ddd;
+    padding: 10px 30px;
+    z-index: 999;
+}
+
+/* ---------- CHAT ---------- */
 
 .user-message {
     background-color: #e3f2fd;
@@ -75,8 +80,22 @@ header {visibility: hidden;}
     margin: 10px 0;
 }
 
+.correct-answer {
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+    padding: 8px 12px;
+    border-radius: 5px;
+    margin: 6px 0;
+    font-weight: 600;
+    color: #155724;
+    display: block;
+}
+
 </style>
 """, unsafe_allow_html=True)
+
+
+# ---------- SIDEBAR ----------
 
 with st.sidebar:
 
@@ -90,19 +109,20 @@ with st.sidebar:
     pdf_files = [f for f in pdf_folder.glob("*.pdf")]
 
     if len(pdf_files) == 0:
-        st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
+        st.warning("⚠️ Nenhum PDF encontrado")
         selected_pdf = None
         selected_materia = None
+
     else:
 
         pdf_options = {}
+
         for pdf in pdf_files:
-            nome = pdf.stem
-            pdf_options[nome] = pdf
+            pdf_options[pdf.stem] = pdf
 
         selected_materia = st.selectbox(
             "Escolha a matéria:",
-            options=list(pdf_options.keys())
+            list(pdf_options.keys())
         )
 
         selected_pdf = pdf_options[selected_materia]
@@ -115,6 +135,8 @@ with st.sidebar:
 
     co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
 
+
+# ---------- SESSION ----------
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -129,6 +151,8 @@ if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
 
 
+# ---------- LER PDF ----------
+
 def extract_pdf_text(pdf_path):
 
     try:
@@ -137,13 +161,15 @@ def extract_pdf_text(pdf_path):
         text = ""
 
         for page in reader.pages:
+
             page_text = page.extract_text()
+
             if page_text:
                 text += page_text + "\n\n"
 
         return text
 
-    except Exception:
+    except:
         return ""
 
 
@@ -156,7 +182,7 @@ if selected_pdf:
     st.session_state.caracteres_count = len(texto)
 
 
-# -------- TOPO FIXO --------
+# ---------- TOPO FIXO ----------
 
 st.markdown(f"""
 <div class="top-fixed">
@@ -178,25 +204,26 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
-# -------- CHAT --------
+# ---------- FORMATAR RESPOSTA ----------
 
 def formatar_resposta(texto):
 
     texto = texto.replace('</div>', '')
     texto = re.sub(r'<[^>]+>', '', texto)
 
-    padroes = [
-        (r'([A-E])\)\s*(.*?)\s*\*\*CORRETA\*\*',
-         r'<span class="correct-answer">\1) \2</span>')
-    ]
+    texto = re.sub(
+        r'([A-E])\)\s*(.*?)\s*\*\*CORRETA\*\*',
+        r'<span class="correct-answer">\1) \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
 
-    for p, r in padroes:
-        texto = re.sub(p, r, texto, flags=re.IGNORECASE)
-
-    texto = texto.replace('\n', '<br>')
+    texto = texto.replace("\n", "<br>")
 
     return texto
 
+
+# ---------- CHAT ----------
 
 for message in st.session_state.messages:
 
@@ -221,25 +248,20 @@ for message in st.session_state.messages:
         """, unsafe_allow_html=True)
 
 
+# ---------- INPUT ----------
+
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
 
     st.session_state.messages.append({"role": "user", "content": prompt})
-
-    st.markdown(f"""
-    <div class="user-message">
-    <strong>👤 Você:</strong><br>{prompt}
-    </div>
-    """, unsafe_allow_html=True)
 
     with st.spinner("Analisando..."):
 
         texto_limitado = st.session_state.pdf_content[:100000]
 
         full_prompt = f"""
-Você é um professor assistente especializado em {st.session_state.materia_nome}.
+Você é professor especialista em {st.session_state.materia_nome}.
 
-INSTRUÇÕES:
-Responda usando apenas o material.
+Responda apenas usando o material abaixo.
 
 MATERIAL:
 {texto_limitado}
@@ -247,7 +269,7 @@ MATERIAL:
 PERGUNTA:
 {prompt}
 
-Retorne a questão completa com a alternativa correta marcada com **CORRETA**
+Retorne a questão completa e marque a correta com **CORRETA**
 """
 
         response = co.chat(
@@ -263,16 +285,14 @@ Retorne a questão completa com a alternativa correta marcada com **CORRETA**
             {"role": "assistant", "content": resposta}
         )
 
-        resposta_formatada = formatar_resposta(resposta)
-
-        st.markdown(f"""
-        <div class="assistant-message">
-        <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-        </div>
-        """, unsafe_allow_html=True)
+        st.rerun()
 
 
-col1, col2, col3 = st.columns([1,4,1])
+# ---------- FOOTER FIXO ----------
+
+st.markdown('<div class="bottom-fixed">', unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns([3,2,3])
 
 with col2:
 
@@ -280,3 +300,5 @@ with col2:
 
         st.session_state.messages = []
         st.rerun()
+
+st.markdown('</div>', unsafe_allow_html=True)
