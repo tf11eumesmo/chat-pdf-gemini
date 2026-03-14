@@ -18,7 +18,7 @@ hr {
 }
 
 .block-container {
-    padding-top: 180px;
+    padding-top: 160px;
 }
 
 /* TOPO FIXO */
@@ -36,8 +36,8 @@ hr {
 .select-row {
     display: flex;
     align-items: center;
-    gap: 15px;
-    margin-bottom: 12px;
+    gap: 12px;
+    margin-bottom: 10px;
 }
 
 .select-label {
@@ -91,13 +91,9 @@ hr {
     display: block;
 }
 
-/* Selectbox inline styling */
-.stSelectbox {
-    flex: 1;
-    min-width: 200px;
-}
-.stSelectbox > div {
-    min-width: 200px;
+/* Esconder selectbox duplicado */
+.select-duplicada {
+    display: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -116,20 +112,23 @@ except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
 # Processar opções de PDF
-if len(pdf_files) == 0:
-    selected_pdf = None
-    selected_materia = None
-    pdf_options = {}
-else:
-    pdf_options = {}
+pdf_options = {}
+if len(pdf_files) > 0:
     for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
         nome_original = pdf_path.name
         nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
         pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-    
-    selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
+
+# Selectbox ÚNICO - no topo da página (antes do header fixo)
+selected_materia = None
+selected_pdf = None
+
+if pdf_options:
+    selected_materia = st.selectbox("📖 Escolha a matéria:", options=list(pdf_options.keys()), index=0, key="materia_select")
     selected_pdf_info = pdf_options[selected_materia]
     selected_pdf = selected_pdf_info['path']
+else:
+    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
 
 # API Key check
 if "COHERE_API_KEY" not in st.secrets:
@@ -185,15 +184,9 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ---------- TOPO FIXO COM SELECTBOX ----------
+# ---------- TOPO FIXO (apenas informações, sem selectbox) ----------
 st.markdown(f"""
 <div class="top-fixed">
-    <div class="select-row">
-        <div class="select-label">📖 Escolha a matéria:</div>
-        <div class="select-container">
-            {st.selectbox("", options=list(pdf_options.keys()) if pdf_options else [""], index=0, key="materia_select_top", label_visibility="collapsed")}
-        </div>
-    </div>
     <div class="materia-info">
         <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
         <small>{st.session_state.caracteres_count:,} caracteres</small>
