@@ -9,7 +9,7 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
-
+/* Esconder header padrão do Streamlit */
 header {visibility: hidden;}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
@@ -17,8 +17,9 @@ hr {
     display: none !important;
 }
 
+/* Ajuste do container principal */
 .block-container {
-    padding-top: 130px;
+    padding-top: 160px;
 }
 
 /* TOPO FIXO */
@@ -33,6 +34,18 @@ hr {
     padding: 12px 40px;
 }
 
+.main-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.chat-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
 .materia-info {
     background-color: #d4edda;
     border-left: 4px solid #28a745;
@@ -41,6 +54,37 @@ hr {
     margin-top: 4px;
     color: #155724;
     font-size: 0.9rem;
+}
+
+/* BARRA DE CONTROLE (SELETOR) */
+.control-bar {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    background: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+    padding: 10px 40px;
+    z-index: 998;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.control-bar-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #333;
+    white-space: nowrap;
+}
+
+.control-bar .stSelectbox {
+    min-width: 250px;
+    max-width: 400px;
+}
+
+.control-bar .stSelectbox > div {
+    min-width: unset !important;
 }
 
 /* CHAT */
@@ -71,14 +115,14 @@ hr {
     display: block;
 }
 
-/* Alinhar label e selectbox na mesma linha */
-.stSelectbox > div {
-    min-width: 250px;
+/* Botão de limpar */
+.stButton > button {
+    width: 100%;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SELEÇÃO DE MATÉRIA (FORA DA SIDEBAR - INLINE) ----------
+# ---------- SELEÇÃO DE MATÉRIA ----------
 pdf_folder = Path("pdfs")
 if not pdf_folder.exists():
     pdf_folder.mkdir(parents=True, exist_ok=True)
@@ -91,23 +135,29 @@ try:
 except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
-# Layout inline: Label + Selectbox na mesma linha
-col_label, col_select = st.columns([1, 4], gap="small")
-with col_label:
-    st.markdown('<div style="padding-top:10px;"><strong>📖 Escolha a matéria:</strong></div>', unsafe_allow_html=True)
-with col_select:
-    if len(pdf_files) == 0:
-        st.warning("⚠️ Nenhum PDF encontrado")
-        selected_pdf = None
-        selected_materia = None
-    else:
-        pdf_options = {}
-        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-            nome_original = pdf_path.name
-            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-        
-        selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
+# Opções de PDF
+pdf_options = {}
+if len(pdf_files) > 0:
+    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+        nome_original = pdf_path.name
+        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+        pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
+
+# Selectbox na control bar
+selected_materia = None
+selected_pdf = None
+
+if len(pdf_files) == 0:
+    st.warning("⚠️ Nenhum PDF encontrado na pasta `pdfs/`")
+else:
+    col_bar1, col_bar2, col_bar3 = st.columns([1, 3, 1])
+    with col_bar2:
+        selected_materia = st.selectbox(
+            "📖 Escolha a matéria:",
+            options=list(pdf_options.keys()),
+            index=0,
+            key="materia_select"
+        )
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
 
@@ -151,6 +201,7 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
+# Carregar PDF quando mudar a seleção
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -158,26 +209,35 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.pdf_content = ""
         st.session_state.current_pdf = None
         st.session_state.caracteres_count = 0
+        st.session_state.materia_nome = ""
     else:
         st.session_state.pdf_content = texto
         st.session_state.current_pdf = selected_pdf
         st.session_state.materia_nome = selected_materia
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
+        st.rerun()
 
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
-    <div class="materia-info">
-        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
-        <small>{st.session_state.caracteres_count:,} caracteres</small>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <div class="main-title">📚 Chat com PDF</div>
+            <div class="materia-info">
+                <strong>Matéria:</strong> {st.session_state.materia_nome or "Nenhuma selecionada"} • 
+                <small>{st.session_state.caracteres_count:,} caracteres</small>
+            </div>
+        </div>
+        <div class="chat-title">💬 Chat de Dúvidas</div>
     </div>
-    <div class="chat-title">💬 Chat de Dúvidas</div>
 </div>
 """, unsafe_allow_html=True)
 
+# ---------- FUNÇÃO DE FORMATAÇÃO ----------
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
+    
     texto = texto.replace('</div>', '')
     texto = texto.replace('<div>', '')
     texto = texto.replace('<br>', '\n')
@@ -230,7 +290,7 @@ def formatar_resposta(texto):
     
     return texto
 
-# Renderizar histórico de mensagens
+# ---------- RENDERIZAR HISTÓRICO DE MENSAGENS ----------
 for message in st.session_state.messages:
     if message["role"] == "user":
         pergunta_limpa = message["content"]
@@ -253,7 +313,7 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# Input do chat
+# ---------- INPUT DO CHAT ----------
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -322,7 +382,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# Botão de limpar histórico
+# ---------- BOTÃO DE LIMPAR HISTÓRICO ----------
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
