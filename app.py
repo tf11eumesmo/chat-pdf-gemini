@@ -6,33 +6,20 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS DEFINITIVO COM WRAPPER ----------
+# ---------- CSS + JAVASCRIPT PARA LAYOUT CORRETO ----------
 st.markdown("""
 <style>
-/* OCULTAR CABEÇALHO PADRÃO DO STREAMLIT */
+/* OCULTAR CABEÇALHO PADRÃO */
 header {visibility: hidden !important;}
 
-/* REMOVER LINHAS DIVISÓRIAS (HR) */
-hr {
-    display: none !important;
-}
+/* REMOVER LINHAS DIVISÓRIAS */
+hr {display: none !important;}
 
-/* --- SIDEBAR TRAVADA E FIXA --- */
-
-/* Esconde completamente o botão de colapso */
-div[data-testid="stSidebarCollapseButton"] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-
+/* SIDEBAR FIXA */
+div[data-testid="stSidebarCollapseButton"] {display: none !important;}
 section[data-testid="stSidebar"] button[kind="header"],
-section[data-testid="stSidebar"] button[kind="headerNoPadding"] {
-    display: none !important;
-    visibility: hidden !important;
-}
+section[data-testid="stSidebar"] button[kind="headerNoPadding"] {display: none !important;}
 
-/* Sidebar fixa com largura exata de 300px */
 section[data-testid="stSidebar"] {
     width: 300px !important;
     min-width: 300px !important;
@@ -45,33 +32,13 @@ section[data-testid="stSidebar"] {
     background-color: #f8f9fa !important;
     border-right: 1px solid #ddd !important;
     z-index: 1000 !important;
-    transform: none !important;
-    transition: none !important;
-}
-
-/* --- WRAPPER PRINCIPAL (SOLUÇÃO DA SOBREPOSIÇÃO) --- */
-/* Este container empurra TODO o conteúdo para a direita */
-.main-content-wrapper {
-    margin-left: 300px !important;
-    width: calc(100% - 300px) !important;
-    padding: 0 !important;
-    position: relative;
-    z-index: 1;
-}
-
-/* Ajuste do bloco de conteúdo dentro do wrapper */
-.block-container {
-    padding-top: 150px !important; /* Espaço para o topo fixo */
-    padding-left: 2rem !important;
-    padding-right: 2rem !important;
-    max-width: 100% !important;
 }
 
 /* TOPO FIXO */
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px; /* Alinhado com a margem da sidebar */
+    left: 300px;
     right: 0;
     background: white;
     z-index: 999;
@@ -80,19 +47,8 @@ section[data-testid="stSidebar"] {
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-.main-title {
-    font-size: 1.35rem;
-    font-weight: 600;
-    color: #333;
-}
-
-.chat-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-top: 8px;
-    text-align: center;
-    color: #555;
-}
+.main-title {font-size: 1.35rem; font-weight: 600; color: #333;}
+.chat-title {font-size: 0.95rem; font-weight: 600; margin-top: 8px; text-align: center; color: #555;}
 
 .materia-info {
     background-color: #d4edda;
@@ -132,15 +88,30 @@ section[data-testid="stSidebar"] {
     display: block;
 }
 
-.stSelectbox label { font-weight: 600; }
-
-/* Chat input ajustado */
-.stChatInputContainer {
-    max-width: 100% !important;
-    padding-left: 1rem;
-    padding-right: 1rem;
-}
+.stSelectbox label {font-weight: 600;}
 </style>
+
+<script>
+// JavaScript para corrigir o layout após carregamento
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        // Força margem no conteúdo principal
+        var mainContent = document.querySelector('.main > div');
+        if (mainContent) {
+            mainContent.style.marginLeft = '300px';
+            mainContent.style.width = 'calc(100% - 300px)';
+        }
+        
+        // Ajusta container do chat
+        var chatContainer = document.querySelector('.stChatInputContainer');
+        if (chatContainer) {
+            chatContainer.style.maxWidth = '100%';
+            chatContainer.style.marginLeft = '0';
+            chatContainer.style.marginRight = '0';
+        }
+    }, 100);
+});
+</script>
 """, unsafe_allow_html=True)
 
 with st.sidebar:
@@ -224,10 +195,6 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.materia_nome = selected_materia
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
-
-# ---------- INÍCIO DO WRAPPER PRINCIPAL ----------
-# Isso força todo o conteúdo abaixo a ter margem esquerda de 300px
-st.markdown('<div class="main-content-wrapper">', unsafe_allow_html=True)
 
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
@@ -399,6 +366,3 @@ with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-
-# ---------- FIM DO WRAPPER PRINCIPAL ----------
-st.markdown('</div>', unsafe_allow_html=True)
