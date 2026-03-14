@@ -3,7 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Chat com PDF</title>
+  
+  <!-- Título da aba com emoji -->
+  <title>📚 Respondendo questões</title>
+  
+  <!-- Favicon com emoji 📚 -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+  
   <style>
     /* Reset básico */
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -55,7 +62,7 @@
       height: 50px;
       background: #ffffff;
       z-index: 9999;
-      pointer-events: auto;  /* ← ← ← BLOQUEIA CLIQUES! */
+      pointer-events: auto;
       box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
     }
     
@@ -122,7 +129,7 @@
     <iframe 
       id="streamlit-frame" 
       src="https://iadobizurado.streamlit.app?embed=true&embed_options=disable_scrolling" 
-      title="Chat com PDF"
+      title="Respondendo questões"
       loading="lazy"
     ></iframe>
     
