@@ -6,7 +6,7 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS SIMPLIFICADO E EFETIVO ----------
+# ---------- CSS DEFINITIVO COM WRAPPER ----------
 st.markdown("""
 <style>
 /* OCULTAR CABEÇALHO PADRÃO DO STREAMLIT */
@@ -22,14 +22,17 @@ hr {
 /* Esconde completamente o botão de colapso */
 div[data-testid="stSidebarCollapseButton"] {
     display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 section[data-testid="stSidebar"] button[kind="header"],
 section[data-testid="stSidebar"] button[kind="headerNoPadding"] {
     display: none !important;
+    visibility: hidden !important;
 }
 
-/* Sidebar fixa - apenas o essencial */
+/* Sidebar fixa com largura exata de 300px */
 section[data-testid="stSidebar"] {
     width: 300px !important;
     min-width: 300px !important;
@@ -42,20 +45,23 @@ section[data-testid="stSidebar"] {
     background-color: #f8f9fa !important;
     border-right: 1px solid #ddd !important;
     z-index: 1000 !important;
+    transform: none !important;
+    transition: none !important;
 }
 
-/* --- CONTAINER PRINCIPAL COM MARGEM FIXA --- */
-
-/* Criamos um container wrapper que empurra todo o conteúdo */
+/* --- WRAPPER PRINCIPAL (SOLUÇÃO DA SOBREPOSIÇÃO) --- */
+/* Este container empurra TODO o conteúdo para a direita */
 .main-content-wrapper {
     margin-left: 300px !important;
     width: calc(100% - 300px) !important;
     padding: 0 !important;
+    position: relative;
+    z-index: 1;
 }
 
 /* Ajuste do bloco de conteúdo dentro do wrapper */
 .block-container {
-    padding-top: 150px !important;
+    padding-top: 150px !important; /* Espaço para o topo fixo */
     padding-left: 2rem !important;
     padding-right: 2rem !important;
     max-width: 100% !important;
@@ -65,7 +71,7 @@ section[data-testid="stSidebar"] {
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px;
+    left: 300px; /* Alinhado com a margem da sidebar */
     right: 0;
     background: white;
     z-index: 999;
@@ -128,9 +134,11 @@ section[data-testid="stSidebar"] {
 
 .stSelectbox label { font-weight: 600; }
 
-/* Chat input */
+/* Chat input ajustado */
 .stChatInputContainer {
     max-width: 100% !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -217,7 +225,8 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ---------- WRAPPER PARA CONTEÚDO PRINCIPAL ----------
+# ---------- INÍCIO DO WRAPPER PRINCIPAL ----------
+# Isso força todo o conteúdo abaixo a ter margem esquerda de 300px
 st.markdown('<div class="main-content-wrapper">', unsafe_allow_html=True)
 
 # ---------- TOPO FIXO ----------
@@ -391,5 +400,5 @@ with col2:
         st.session_state.messages = []
         st.rerun()
 
-# ---------- FECHAR WRAPPER ----------
+# ---------- FIM DO WRAPPER PRINCIPAL ----------
 st.markdown('</div>', unsafe_allow_html=True)
