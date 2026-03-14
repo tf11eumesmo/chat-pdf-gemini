@@ -4,58 +4,53 @@ from pypdf import PdfReader
 from pathlib import Path
 import re
 
-# Configuração da página
-st.set_page_config(
-    page_title="Chat com PDF",
-    page_icon="📚",
-    layout="wide"
-)
+st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# CSS Personalizado (Header Fixo + Estilos)
+# ========== CSS COM CABEÇALHO FIXO ==========
 st.markdown("""
 <style>
-    /* ===== CABEÇALHO FIXO NO TOPO ===== */
+    /* Cabeçalho fixo no topo */
     .fixed-header {
         position: sticky;
         top: 0;
         background-color: #ffffff;
-        z-index: 1000;
+        z-index: 9999;
         padding: 10px 0;
         border-bottom: 1px solid #e0e0e0;
-        margin-bottom: 15px;
     }
     
     /* Título principal */
     .main-title {
         font-size: 1.3rem !important;
         font-weight: 600;
-        margin: 0 0 8px 0;
+        margin-bottom: 0.5rem;
         color: #1a1a1a;
     }
     
-    /* Matéria atual (verde) */
+    /* Matéria Atual (verde) */
     .materia-info {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
-        padding: 8px 12px;
-        border-radius: 4px;
-        margin: 0 0 10px 0;
+        padding: 10px 15px;
+        border-radius: 5px;
+        margin: 8px 0;
         color: #155724;
         font-size: 0.95rem;
     }
-    .materia-info strong { color: #155724; }
+    .materia-info strong {
+        color: #155724;
+    }
     
-    /* Chat de Dúvidas (fonte menor) */
+    /* Chat de Dúvidas (fonte reduzida) */
     .chat-header {
         font-size: 1.1rem !important;
         font-weight: 600;
-        margin: 0 0 12px 0;
         color: #333;
-        padding-bottom: 8px;
-        border-bottom: 2px solid #4caf50;
+        margin-top: 10px;
+        margin-bottom: 10px;
     }
     
-    /* ===== ESTILOS DO CHAT ===== */
+    /* Respostas corretas */
     .correct-answer {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
@@ -68,67 +63,40 @@ st.markdown("""
     }
     .correct-answer::before { content: "✅ "; }
     
+    /* Mensagens do chat */
     .user-message {
         background-color: #e3f2fd;
         border-left: 4px solid #2196f3;
-        padding: 12px 15px;
-        border-radius: 8px;
-        margin: 8px 0;
-        font-size: 0.95rem;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 10px 0;
     }
     .assistant-message {
         background-color: #f5f5f5;
         border-left: 4px solid #4caf50;
-        padding: 12px 15px;
-        border-radius: 8px;
-        margin: 8px 0;
-        font-size: 0.95rem;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 10px 0;
     }
     
+    /* Sidebar */
     .stSelectbox label { font-weight: 600; }
     
-    /* Ajuste para conteúdo não ficar escondido atrás do header fixo */
-    .stApp [data-testid="stVerticalBlock"] > div:first-child {
-        padding-top: 10px;
-    }
-    
-    /* Scroll suave */
-    html { scroll-behavior: smooth; }
+    /* Esconder elementos padrão do Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stAppHeader {visibility: hidden;}
+    header {visibility: hidden;}
+    .stApp > div[data-testid="stToolbar"] {visibility: hidden;}
+    section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# Título principal + Matéria Atual + Chat Header (TUDO FIXO NO TOPO)
-st.markdown("""
-<div class="fixed-header">
-    <p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>
-    <div class="materia-info" id="materia-info">
-        <strong>📚 Matéria Atual:</strong> <span id="materia-nome">Selecione uma matéria</span> • 
-        <small><span id="caracteres-count">0</span> caracteres</small>
-    </div>
-    <h2 class="chat-header">💬 Chat de Dúvidas</h2>
-</div>
-""", unsafe_allow_html=True)
+# ========== CABEÇALHO FIXO NO TOPO ==========
+st.markdown('<div class="fixed-header">', unsafe_allow_html=True)
+st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>', unsafe_allow_html=True)
 
-# Script para atualizar a matéria atual dinamicamente
-st.markdown("""
-<script>
-function updateMateriaInfo(nome, count) {
-    const nomeEl = document.getElementById('materia-nome');
-    const countEl = document.getElementById('caracteres-count');
-    const infoEl = document.getElementById('materia-info');
-    
-    if (nomeEl && countEl) {
-        nomeEl.textContent = nome;
-        countEl.textContent = count.toLocaleString('pt-BR');
-    }
-    if (infoEl && nome) {
-        infoEl.style.display = 'block';
-    }
-}
-</script>
-""", unsafe_allow_html=True)
-
-# ==================== BARRA LATERAL ====================
+# ========== BARRA LATERAL ==========
 with st.sidebar:
     st.header("📖 Selecionar Matéria")
     
@@ -153,24 +121,14 @@ with st.sidebar:
         for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
             nome_original = pdf_path.name
             nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-            pdf_options[nome_exibicao] = {
-                'path': pdf_path,
-                'original_name': nome_original
-            }
+            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
         
-        selected_materia = st.selectbox(
-            "Escolha a matéria:",
-            options=list(pdf_options.keys()),
-            index=0,
-            help="Selecione o PDF que será usado como fonte para as respostas"
-        )
-        
+        selected_materia = st.selectbox("Escolha a matéria:", options=list(pdf_options.keys()), index=0)
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
     
     st.divider()
     
-    # Configurar Cohere API
     if "COHERE_API_KEY" not in st.secrets:
         st.error("❌ COHERE_API_KEY não configurada")
         st.stop()
@@ -181,7 +139,7 @@ with st.sidebar:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
 
-# ==================== ESTADO DA SESSÃO ====================
+# ========== ESTADO DA SESSÃO ==========
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -193,7 +151,7 @@ if "materia_nome" not in st.session_state:
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
 
-# ==================== FUNÇÃO PARA EXTRAIR TEXTO ====================
+# ========== FUNÇÃO PARA EXTRAIR TEXTO ==========
 def extract_pdf_text(pdf_path):
     try:
         reader = PdfReader(str(pdf_path))
@@ -211,7 +169,7 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
-# ==================== CARREGAR PDF QUANDO SELECIONADO ====================
+# ========== CARREGAR PDF QUANDO SELECIONADO ==========
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -226,17 +184,26 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ==================== ATUALIZAR MATÉRIA ATUAL (DINÂMICO) ====================
+# ========== MOSTRAR MATÉRIA ATUAL (NO CABEÇALHO FIXO) ==========
 if st.session_state.pdf_content:
     st.markdown(f"""
-    <script>
-        updateMateriaInfo("{st.session_state.materia_nome}", {st.session_state.caracteres_count});
-    </script>
+    <div class="materia-info">
+        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+        <small>{st.session_state.caracteres_count:,} caracteres</small>
+    </div>
     """, unsafe_allow_html=True)
+else:
+    st.markdown('<div class="materia-info" style="background-color: #fff3cd; border-left-color: #ffc107; color: #856404;">⚠️ Selecione uma matéria acima para começar</div>', unsafe_allow_html=True)
+
+# ========== CHAT DE DÚVIDAS (FONTE REDUZIDA) ==========
+st.markdown('<h3 class="chat-header">💬 Chat de Dúvidas</h3>', unsafe_allow_html=True)
+
+# Fechar a div do cabeçalho fixo
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ==================== ÁREA DO CHAT ====================
+# ========== EXIBIR MENSAGENS ==========
 for message in st.session_state.messages:
     if message["role"] == "user":
         # Limpar pergunta do usuário (remover tags HTML)
@@ -260,7 +227,7 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# ==================== FUNÇÃO PARA FORMATAR RESPOSTA ====================
+# ========== FUNÇÃO PARA FORMATAR RESPOSTA ==========
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
     
@@ -268,7 +235,7 @@ def formatar_resposta(texto):
     texto = texto.replace('</div>', '')
     texto = texto.replace('<div>', '')
     texto = texto.replace('<br>', '\n')
-    texto = re.sub(r'<[^>]+>', '', texto)  # Remove todas as tags HTML
+    texto = re.sub(r'<[^>]+>', '', texto)
     texto = texto.strip()
     
     # QUESTÕES DE MÚLTIPLA ESCOLHA (A, B, C, D, E)
@@ -322,7 +289,7 @@ def formatar_resposta(texto):
     
     return texto
 
-# ==================== INPUT DO USUÁRIO ====================
+# ========== INPUT DO USUÁRIO ==========
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -392,7 +359,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# ==================== BOTÃO PARA LIMPAR CHAT ====================
+# ========== BOTÃO PARA LIMPAR CHAT ==========
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
