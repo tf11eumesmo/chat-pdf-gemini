@@ -81,7 +81,6 @@ with st.sidebar:
     
     st.divider()
     
-    # Configurar Cohere API
     if "COHERE_API_KEY" not in st.secrets:
         st.error("❌ COHERE_API_KEY não configurada")
         st.stop()
@@ -161,6 +160,14 @@ for message in st.session_state.messages:
         """, unsafe_allow_html=True)
 
 def formatar_resposta(texto):
+    """Formata a resposta para diferentes tipos de questões"""
+    
+    # Remover tags HTML indesejadas
+    texto = texto.replace('</div>', '')
+    texto = texto.replace('<div>', '')
+    texto = texto.strip()
+    
+    # QUESTÕES DE MÚLTIPLA ESCOLHA (A, B, C, D, E)
     padroes_correta = [
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*Correta\*\*', r'<span class="correct-answer">\1) \2</span>'),
@@ -168,21 +175,47 @@ def formatar_resposta(texto):
         (r'([A-E])\)\s*([^\n]*?)\s*✅\s*CORRETA', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\(Correta\)', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\(CORRETA\)', r'<span class="correct-answer">\1) \2</span>'),
+        (r'✅\s*([A-E])\)\s*([^\n]*)', r'<span class="correct-answer">✅ \1) \2</span>'),
     ]
+    
     for padrao, substituicao in padroes_correta:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    padroes_indicacao = [
-        (r'(Alternativa|Letra)\s*([A-E])\s*(está|é|:)\s*correta', r'<span class="correct-answer">\2) Alternativa correta</span>'),
-        (r'Resposta:\s*([A-E])', r'<span class="correct-answer">\1) Resposta correta</span>'),
-        (r'Gabarito:\s*([A-E])', r'<span class="correct-answer">\1) Gabarito</span>'),
+    # QUESTÕES VERDADEIRO/FALSO (V/F)
+    padroes_vf = [
+        (r'(VERDADEIRO|V)\s*[-:]?\s*(CORRETO|CERTO|CORRETA)?\s*\*\*', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
+        (r'(FALSO|F)\s*[-:]?\s*(INCORRETO|ERRADO|ERRADA)?\s*\*\*', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
+        (r'✅\s*(VERDADEIRO|V)', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
+        (r'❌\s*(FALSO|F)', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
     ]
-    for padrao, substituicao in padroes_indicacao:
+    
+    for padrao, substituicao in padroes_vf:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
+    # ENUMERAÇÃO/NUMERAÇÃO (1, 2, 3...)
+    texto = re.sub(
+        r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*',
+        r'\1<span class="correct-answer">✅ \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
+    
+    # QUESTÕES ABERTAS/DISCURSIVAS
+    texto = re.sub(
+        r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*',
+        r'<span class="correct-answer">✅ Resposta: \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
+    
+    # FORMATAÇÃO GERAL
     texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
+    texto = re.sub(r'(\n|^)(V|v)\)\s*', r'\1<strong>V)</strong> ', texto)
+    texto = re.sub(r'(\n|^)(F|f)\)\s*', r'\1<strong>F)</strong> ', texto)
+    
     texto = texto.replace('**', '')
     texto = texto.replace('\n', '<br>')
+    
     return texto
 
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
@@ -198,7 +231,6 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         
         with st.spinner("Analisando..."):
             try:
-                # Limitar para ~100k caracteres (~25k tokens) para ficar dentro do limite de 128k do Cohere
                 texto_limitado = st.session_state.pdf_content[:100000]
                 
                 full_prompt = f"""
@@ -209,9 +241,15 @@ REGRAS OBRIGATÓRIAS:
 2. Se houver questões com alternativas (A, B, C, D, E), você DEVE indicar qual está correta
 3. Para indicar a alternativa correta, use EXATAMENTE este formato:
    - Escreva a alternativa completa seguida de **CORRETA**
-   - Exemplo: "A) Esta é a resposta **CORRETA**"
-4. Se não encontrar a informação no material, diga: "Não encontrei essa informação no material fornecido"
-5. Seja claro, didático e objetivo
+   - Exemplo: "D) Esta é a resposta **CORRETA**"
+4. Para questões Verdadeiro/Falso, use:
+   - "✅ VERDADEIRO **CORRETO**" ou "❌ FALSO **INCORRETO**"
+5. Para enumeração, use:
+   - "1. Item **CORRETO**"
+6. Para questões abertas, use:
+   - "Resposta: **resposta correta**"
+7. Se não encontrar a informação, diga: "Não encontrei essa informação no material fornecido"
+8. Seja claro, didático e objetivo
 
 MATERIAL DE ESTUDO:
 {texto_limitado}
@@ -219,12 +257,11 @@ MATERIAL DE ESTUDO:
 PERGUNTA DO ALUNO:
 {prompt}
 
-RESPOSTA (use **CORRETA** para destacar a alternativa certa):
+RESPOSTA (use os formatos acima para destacar):
 """
                 
-                # ← ← ← CHAMADA À COHERE API COM MODELO ATUALIZADO ← ← ←
                 response = co.chat(
-                    model="command-a-03-2025",  # ✅ MODELO CORRETO (flagship 2026)
+                    model="command-a-03-2025",
                     message=full_prompt,
                     temperature=0.3,
                     max_tokens=2048,
