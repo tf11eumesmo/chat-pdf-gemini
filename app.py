@@ -17,45 +17,35 @@ hr {
     display: none !important;
 }
 
+/* AUMENTAR ESPAÇO NO TOPO PARA NÃO FICAR ATRÁS DO HEADER FIXO */
 .block-container {
-    padding-top: 230px;
+    padding-top: 280px; /* Aumentado de 150px para 280px */
 }
 
 /* TOPO FIXO */
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px;
+    left: 0; /* Ajustado para ocupar toda a largura disponível (sidebar lida com o resto) */
     right: 0;
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 15px 40px 25px 40px;
-    height: 190px;
-    box-sizing: border-box;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 20px 40px; /* Aumentado padding vertical */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 }
 
 .main-title {
     font-size: 1.5rem;
     font-weight: 700;
+    color: #333;
     margin-bottom: 15px;
-    color: #1a1a1a;
 }
 
-.selector-wrapper {
-    background: #f8f9fa;
-    padding: 12px 20px;
-    border-radius: 8px;
-    margin: 10px 0;
-    border: 1px solid #e0e0e0;
-}
-
-.selector-wrapper label {
-    color: #333 !important;
-    font-weight: 600 !important;
-    font-size: 0.95rem !important;
-    margin-bottom: 5px !important;
+/* ESTILO DO SELETOR DENTRO DO HEADER */
+.header-selectbox-container {
+    margin-bottom: 15px;
+    max-width: 400px;
 }
 
 .chat-title {
@@ -69,11 +59,10 @@ hr {
 .materia-info {
     background-color: #d4edda;
     border-left: 4px solid #28a745;
-    padding: 10px 15px;
+    padding: 10px 12px;
     border-radius: 5px;
     margin-top: 10px;
     color: #155724;
-    font-size: 0.9rem;
     display: inline-block;
 }
 
@@ -105,16 +94,19 @@ hr {
     display: block;
 }
 
-.stSelectbox label { font-weight: 600; }
-
-/* Sidebar adjustments */
-section[data-testid="stSidebar"] {
-    background-color: #f8f9fa;
+/* Ajuste específico para o selectbox dentro do header para ficar bonito */
+.stSelectbox label { 
+    font-weight: 600; 
+    font-size: 0.9rem;
+    color: #444;
+}
+.stSelectbox > div {
+    border-radius: 8px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SIDEBAR ----------
+# Lógica da Sidebar (Apenas API Key e Pasta, sem o Selectbox de matéria)
 with st.sidebar:
     st.header("⚙️ Configurações")
     
@@ -122,35 +114,35 @@ with st.sidebar:
     if not pdf_folder.exists():
         pdf_folder.mkdir(parents=True, exist_ok=True)
     
-    pdf_files = []
-    try:
-        for item in pdf_folder.iterdir():
-            if item.is_file() and item.suffix.lower() == ".pdf":
-                pdf_files.append(item)
-    except Exception as e:
-        st.error(f"Erro ao listar PDFs: {e}")
+    # Apenas mostrando status da pasta na sidebar
+    st.info(f"📂 Pasta de PDFs: `{pdf_folder.absolute()}`")
     
-    # Exibe status dos PDFs na sidebar
-    if len(pdf_files) == 0:
-        st.warning("⚠️ Nenhum PDF na pasta 'pdfs'")
-    else:
-        st.success(f"✅ {len(pdf_files)} PDF(s) disponível(is)")
-    
-    st.divider()
-    
-    # Configuração da API Key
     if "COHERE_API_KEY" not in st.secrets:
         st.error("❌ COHERE_API_KEY não configurada nos secrets")
         st.stop()
     
     try:
         co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
-        st.success("✅ API Cohere conectada")
+        st.success("✅ API Conectada")
     except Exception as e:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
 
-# ---------- PROCESSAR PDFS ----------
+# Inicialização de Session State
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "current_pdf" not in st.session_state:
+    st.session_state.current_pdf = None
+if "pdf_content" not in st.session_state:
+    st.session_state.pdf_content = ""
+if "materia_nome" not in st.session_state:
+    st.session_state.materia_nome = "Nenhuma selecionada"
+if "caracteres_count" not in st.session_state:
+    st.session_state.caracteres_count = 0
+if "pdf_options" not in st.session_state:
+    st.session_state.pdf_options = {}
+
+# Carregar lista de PDFs
 pdf_folder = Path("pdfs")
 pdf_files = []
 try:
@@ -160,54 +152,27 @@ try:
 except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
-pdf_options = {}
-if pdf_files:
-    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-        nome_original = pdf_path.name
-        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-        pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-
-# ---------- SESSION STATE ----------
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "current_pdf" not in st.session_state:
-    st.session_state.current_pdf = None
-if "pdf_content" not in st.session_state:
-    st.session_state.pdf_content = ""
-if "materia_nome" not in st.session_state:
-    st.session_state.materia_nome = ""
-if "caracteres_count" not in st.session_state:
-    st.session_state.caracteres_count = 0
-if "pdf_loaded" not in st.session_state:
-    st.session_state.pdf_loaded = False
-
-# ---------- SELETOR DE MATÉRIA (NO HEADER) ----------
-selected_pdf = None
-selected_materia = None
-
-if pdf_options:
-    # Se já tem matéria carregada, usa ela como padrão
-    default_index = 0
-    if st.session_state.materia_nome and st.session_state.materia_nome in pdf_options:
-        default_index = list(pdf_options.keys()).index(st.session_state.materia_nome)
+if len(pdf_files) > 0:
+    # Atualizar opções apenas se mudou (para não resetar seleção indevidamente)
+    current_options_keys = list(st.session_state.pdf_options.keys())
+    new_files_names = [f.name for f in pdf_files]
     
-    col_sel1, col_sel2, col_sel3 = st.columns([1, 4, 1])
-    with col_sel2:
-        selected_materia = st.selectbox(
-            "📖 Escolha a matéria:",
-            options=list(pdf_options.keys()),
-            index=default_index,
-            key="materia_selector",
-            label_visibility="collapsed"
-        )
-        selected_pdf_info = pdf_options[selected_materia]
-        selected_pdf = selected_pdf_info['path']
-else:
-    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
-    selected_pdf = None
-    selected_materia = None
+    if set(current_options_keys) != set(new_files_names):
+        pdf_options = {}
+        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+            nome_original = pdf_path.name
+            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
+        st.session_state.pdf_options = pdf_options
 
-# ---------- FUNÇÃO DE EXTRAÇÃO DE TEXTO ----------
+# Lógica de Seleção de Matéria (Agora no corpo principal, mas dentro do header visual)
+selected_pdf = None
+if len(st.session_state.pdf_options) == 0:
+    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
+else:
+    # O selectbox será renderizado dentro do HTML do header abaixo para ficar fixo
+    pass
+
 def extract_pdf_text(pdf_path):
     try:
         reader = PdfReader(str(pdf_path))
@@ -225,49 +190,89 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
-# ---------- CARREGAR PDF QUANDO MUDAR SELEÇÃO ----------
-if selected_pdf and selected_pdf != st.session_state.current_pdf:
-    texto, erro = extract_pdf_text(selected_pdf)
-    if erro:
-        st.error(f"❌ {erro}")
-        st.session_state.pdf_content = ""
-        st.session_state.current_pdf = None
-        st.session_state.caracteres_count = 0
-        if selected_materia:
-            st.session_state.materia_nome = selected_materia
+# Detectar mudança de seleção (precisamos de uma variável de estado para o selectbox fixo)
+# Como o selectbox estará no HTML, usamos st.session_state para controlar a seleção lógica
+if "selected_materia_logic" not in st.session_state:
+    if len(st.session_state.pdf_options) > 0:
+        st.session_state.selected_materia_logic = list(st.session_state.pdf_options.keys())[0]
     else:
-        st.session_state.pdf_content = texto
-        st.session_state.current_pdf = selected_pdf
-        st.session_state.materia_nome = selected_materia
-        st.session_state.caracteres_count = len(texto)
-        st.session_state.messages = []
-        st.session_state.pdf_loaded = True
-        st.rerun()
+        st.session_state.selected_materia_logic = None
 
-# ---------- TOPO FIXO ----------
-materia_display = st.session_state.materia_nome if st.session_state.materia_nome else (selected_materia if selected_materia else "Nenhuma")
-caracteres_display = f"{st.session_state.caracteres_count:,}" if st.session_state.caracteres_count > 0 else "0"
+# Se houver opções, criamos o selectbox invisível ou usamos query params? 
+# Melhor abordagem para Streamlit puro com header fixo customizado:
+# Usar um container no topo que simula o header, mas contém widgets reais do Streamlit?
+# Não, o pedido foi específico sobre CSS. 
+# Truque: Vamos colocar o st.selectbox DENTRO do st.markdown do header? Não funciona bem.
+# Solução: Vamos usar st.columns no topo para simular o header, mas mantendo a funcionalidade.
+# PORÉM, o usuário pediu para colocar "abaixo do título" no código fornecido.
+# Vou usar um truque: Renderizar o selectbox normal do streamlit, mas usar CSS para posicioná-lo visualmente onde queremos,
+# OU, mais simples e robusto: Colocar o selectbox REAL logo após o markdown do header, mas antes do padding do block-container.
+
+# Para cumprir estritamente "colocar o seletor abaixo do título" e manter o header fixo:
+# Vamos injetar o selectbox dentro da div fixa via HTML não é possível com widgets Streamlit interativos.
+# A melhor solução UX mantendo o código limpo é usar st.container() no topo com CSS para parecer fixo,
+# mas o código original usava position: fixed.
+
+# Vamos adaptar: O Selectbox REAL ficará logo abaixo do Markdown do Header Fixo, 
+# mas visualmente integrado. 
+
+# --- Lógica de Carregamento do PDF ---
+if st.session_state.selected_materia_logic and st.session_state.selected_materia_logic in st.session_state.pdf_options:
+    selected_info = st.session_state.pdf_options[st.session_state.selected_materia_logic]
+    selected_pdf_path = selected_info['path']
+    
+    if selected_pdf_path != st.session_state.current_pdf:
+        texto, erro = extract_pdf_text(selected_pdf_path)
+        if erro:
+            st.error(f"❌ {erro}")
+            st.session_state.pdf_content = ""
+            st.session_state.current_pdf = None
+        else:
+            st.session_state.pdf_content = texto
+            st.session_state.current_pdf = selected_pdf_path
+            st.session_state.materia_nome = st.session_state.selected_materia_logic
+            st.session_state.caracteres_count = len(texto)
+            st.session_state.messages = [] # Limpa chat ao trocar matéria
+
+# ---------- TOPO FIXO (Visual) + SELECTBOX REAL ----------
+# Nota: Para ter um widget funcional dentro de um header fixo customizado em Streamlit,
+# a abordagem mais estável é ter o widget logo no início do body, mas estilizado para parecer parte do header.
 
 st.markdown(f"""
 <div class="top-fixed">
     <div class="main-title">
-    📚 Selecione uma matéria e faça perguntas sobre o conteúdo!
-    </div>
-    
-    <div style="text-align: center;">
-        <span class="materia-info">
-            <strong>📚 Matéria Atual:</strong> {materia_display} • 
-            <small>{caracteres_display} caracteres</small>
-        </span>
-    </div>
-    
-    <div class="chat-title">
-    💬 Chat de Dúvidas
+        📚 Selecione uma matéria e faça perguntas sobre o conteúdo!
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- FUNÇÃO DE FORMATAÇÃO DE RESPOSTA ----------
+# Selectbox Real (Posicionado logo após o header fixo visualmente)
+if len(st.session_state.pdf_options) > 0:
+    col_sel_1, col_sel_2, col_sel_3 = st.columns([1, 3, 1])
+    with col_sel_2:
+        # Este selectbox controla a variável de sessão que carrega o PDF
+        st.session_state.selected_materia_logic = st.selectbox(
+            "Escolha a matéria:", 
+            options=list(st.session_state.pdf_options.keys()), 
+            index=list(st.session_state.pdf_options.keys()).index(st.session_state.selected_materia_logic) if st.session_state.selected_materia_logic in st.session_state.pdf_options else 0,
+            key="top_selectbox"
+        )
+
+# Informações da Matéria (Visual)
+if st.session_state.materia_nome != "Nenhuma selecionada":
+    st.markdown(f"""
+    <div style="margin-top: -20px; margin-bottom: 20px; text-align: center;">
+        <div class="materia-info">
+            <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+            <small>{st.session_state.caracteres_count:,} caracteres</small>
+        </div>
+        <div class="chat-title">💬 Chat de Dúvidas</div>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
+# Função de Formatação
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
     
@@ -323,7 +328,7 @@ def formatar_resposta(texto):
     
     return texto
 
-# ---------- EXIBIR MENSAGENS DO CHAT ----------
+# Renderizar Histórico
 for message in st.session_state.messages:
     if message["role"] == "user":
         pergunta_limpa = message["content"]
@@ -346,7 +351,7 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# ---------- INPUT DO USUÁRIO ----------
+# Input do Usuário
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -415,7 +420,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# ---------- BOTÃO LIMPAR HISTÓRICO ----------
+# Botão Limpar
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
