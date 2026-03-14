@@ -3,9 +3,6 @@ import cohere
 from pypdf import PdfReader
 from pathlib import Path
 import re
-from PIL import Image
-import io
-import base64
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
@@ -78,14 +75,6 @@ button[kind="headerNoPadding"] {
     margin: 10px 0;
 }
 
-.user-message-image {
-    background-color: #e3f2fd;
-    border-left: 4px solid #9c27b0;
-    padding: 15px;
-    border-radius: 10px;
-    margin: 10px 0;
-}
-
 .assistant-message {
     background-color: #f5f5f5;
     border-left: 4px solid #4caf50;
@@ -106,68 +95,6 @@ button[kind="headerNoPadding"] {
 }
 
 .stSelectbox label { font-weight: 600; }
-
-/* ESTILO PARA ÁREA DE INPUT COM BOTÃO */
-.input-container {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    background: white;
-    padding: 10px;
-    border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-}
-
-.input-container .stTextInput {
-    flex: 1;
-    margin-bottom: 0 !important;
-}
-
-.input-container .stButton {
-    margin-bottom: 0 !important;
-}
-
-/* OCULTAR TEXTO PADRÃO DO FILE UPLOADER */
-.uploadedFile {
-    display: none;
-}
-
-/* ESTILO PARA BOTÃO DE FOTO */
-.stFileUploader > div > div {
-    padding: 0 !important;
-}
-
-.stFileUploader > div > div > div {
-    border: none !important;
-    padding: 0 !important;
-}
-
-.photo-button {
-    background-color: #9c27b0;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.photo-button:hover {
-    background-color: #7b1fa2;
-}
-
-/* IMAGEM NA MENSAGEM */
-.message-image {
-    max-width: 300px;
-    max-height: 300px;
-    border-radius: 8px;
-    margin-top: 10px;
-    border: 2px solid #ddd;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -221,8 +148,6 @@ if "materia_nome" not in st.session_state:
     st.session_state.materia_nome = ""
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
-if "temp_image" not in st.session_state:
-    st.session_state.temp_image = None
 
 def extract_pdf_text(pdf_path):
     try:
@@ -240,17 +165,6 @@ def extract_pdf_text(pdf_path):
         return text, None
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
-
-def image_to_base64(image):
-    buffered = io.BytesIO()
-    image.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode()
-
-def extract_text_from_image(image):
-    """Função para extrair texto da imagem (simplificada - você pode integrar com OCR posteriormente)"""
-    # Por enquanto, retorna uma mensagem indicando que é uma imagem
-    # TODO: Integrar com serviço de OCR como Tesseract ou API do Google Vision
-    return "[Texto extraído da imagem da questão]"
 
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
@@ -337,40 +251,20 @@ def formatar_resposta(texto):
     
     return texto
 
-# Exibir mensagens do histórico
 for message in st.session_state.messages:
     if message["role"] == "user":
-        if "image" in message:
-            # Mensagem com imagem
-            img_base64 = message["image"]
-            pergunta_limpa = message["content"]
-            pergunta_limpa = pergunta_limpa.replace('</div>', '')
-            pergunta_limpa = pergunta_limpa.replace('<div>', '')
-            pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
-            pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
-            pergunta_limpa = pergunta_limpa.strip()
-            
-            st.markdown(f"""
-            <div class="user-message-image">
-                <strong>👤 Você (com foto):</strong><br>
-                {pergunta_limpa if pergunta_limpa else "Imagem enviada"}<br>
-                <img src="data:image/png;base64,{img_base64}" class="message-image">
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            # Mensagem de texto normal
-            pergunta_limpa = message["content"]
-            pergunta_limpa = pergunta_limpa.replace('</div>', '')
-            pergunta_limpa = pergunta_limpa.replace('<div>', '')
-            pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
-            pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
-            pergunta_limpa = pergunta_limpa.strip()
-            
-            st.markdown(f"""
-            <div class="user-message">
-                <strong>👤 Você:</strong><br>{pergunta_limpa}
-            </div>
-            """, unsafe_allow_html=True)
+        pergunta_limpa = message["content"]
+        pergunta_limpa = pergunta_limpa.replace('</div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
+        pergunta_limpa = pergunta_limpa.strip()
+        
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
+        </div>
+        """, unsafe_allow_html=True)
     else:
         resposta_formatada = formatar_resposta(message["content"])
         st.markdown(f"""
@@ -379,24 +273,10 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# Área de input com botão de foto
-col1, col2, col3 = st.columns([4, 1, 1])
-
-with col1:
-    prompt = st.text_input("", placeholder="Digite sua questão ou envie uma foto...", key="chat_input", label_visibility="collapsed")
-
-with col2:
-    uploaded_file = st.file_uploader("", type=['png', 'jpg', 'jpeg'], key="photo_upload", label_visibility="collapsed")
-
-with col3:
-    enviar_foto = st.button("📷 Enviar Foto", use_container_width=True)
-
-# Processar envio de texto
-if prompt and st.session_state.get('last_prompt') != prompt:
+if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
-        st.session_state.last_prompt = prompt
         st.session_state.messages.append({"role": "user", "content": prompt})
         
         pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
@@ -435,92 +315,6 @@ MATERIAL DE ESTUDO:
 
 PERGUNTA DO ALUNO:
 {prompt}
-
-RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
-"""
-                
-                response = co.chat(
-                    model="command-a-03-2025",
-                    message=full_prompt,
-                    temperature=0.3,
-                    max_tokens=2048,
-                    preamble="Você é um assistente útil e preciso."
-                )
-                resposta = response.text
-                
-                st.session_state.messages.append({"role": "assistant", "content": resposta})
-                resposta_formatada = formatar_resposta(resposta)
-                st.markdown(f"""
-                <div class="assistant-message">
-                    <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-                </div>
-                """, unsafe_allow_html=True)
-                
-            except Exception as e:
-                erro_msg = f"❌ Erro na API: {str(e)}"
-                st.error(erro_msg)
-                st.session_state.messages.append({"role": "assistant", "content": erro_msg})
-
-# Processar envio de foto
-if enviar_foto and uploaded_file is not None:
-    if not st.session_state.pdf_content:
-        st.error("❌ Selecione uma matéria primeiro!")
-    else:
-        # Processar a imagem
-        image = Image.open(uploaded_file)
-        
-        # Redimensionar se necessário
-        max_size = (800, 800)
-        image.thumbnail(max_size, Image.Resampling.LANCZOS)
-        
-        # Converter para base64
-        img_base64 = image_to_base64(image)
-        
-        # Extrair texto da imagem (simulado - você pode integrar com OCR)
-        texto_da_imagem = extract_text_from_image(image)
-        
-        # Mensagem do usuário com a imagem
-        user_message = f"Foto da questão: {uploaded_file.name}"
-        st.session_state.messages.append({
-            "role": "user", 
-            "content": user_message,
-            "image": img_base64
-        })
-        
-        # Mostrar a imagem na interface
-        st.markdown(f"""
-        <div class="user-message-image">
-            <strong>👤 Você (com foto):</strong><br>
-            {user_message}<br>
-            <img src="data:image/png;base64,{img_base64}" class="message-image">
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.spinner("Analisando imagem..."):
-            try:
-                texto_limitado = st.session_state.pdf_content[:100000]
-                
-                # Prompt adaptado para imagem
-                full_prompt = f"""
-Você é um professor assistente especializado em {st.session_state.materia_nome}.
-
-INSTRUÇÕES OBRIGATÓRIAS:
-1. O aluno enviou uma FOTO de uma questão
-2. Responda APENAS com base no conteúdo do material fornecido abaixo
-3. RETORNE A QUESTÃO COMPLETA baseada no que você pode interpretar da foto
-4. Indique qual alternativa está correta usando **CORRETA** após a alternativa
-5. NÃO adicione justificativas, explicações extras ou comentários
-6. Se não conseguir identificar a questão na foto, peça para digitar o texto
-7. Formato EXATO para múltipla escolha:
-   - Retorne a pergunta completa
-   - Retorne TODAS as alternativas (A, B, C, D, E)
-   - Após a correta, escreva: " **CORRETA**"
-8. Para V/F: "✅ VERDADEIRO **CORRETO**" ou "❌ FALSO **INCORRETO**"
-
-MATERIAL DE ESTUDO:
-{texto_limitado}
-
-O aluno enviou uma foto da questão. Interprete o que está na foto e responda:
 
 RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
 """
