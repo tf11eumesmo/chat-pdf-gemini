@@ -1,10 +1,3 @@
-Aqui está o código atualizado com as três alterações solicitadas:
-
-1.  **Sidebar:** O título foi alterado para `📖 Escolha a matéria:` e o rótulo do seletor (`Escolha a matéria:`) foi removido (deixando apenas a caixa de seleção).
-2.  **Topo Fixo:** O texto `💬 Chat de Dúvidas` agora está centralizado usando CSS (`text-align: center`).
-3.  **Restante:** Toda a lógica original do Código 1 foi mantida.
-
-```python
 import streamlit as st
 import cohere
 from pypdf import PdfReader
@@ -357,4 +350,3 @@ with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-```
