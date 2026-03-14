@@ -15,7 +15,6 @@ header {visibility: hidden;}
 
 .block-container {
     padding-top: 150px;
-    padding-bottom: 120px;
 }
 
 /* TOPO FIXO */
@@ -49,19 +48,6 @@ header {visibility: hidden;}
     border-radius: 5px;
     margin-top: 8px;
     color: #155724;
-}
-
-/* FOOTER FIXO */
-
-.bottom-bar {
-    position: fixed;
-    bottom: 70px;
-    left: 300px;
-    right: 0;
-    background: white;
-    padding: 10px 40px;
-    border-top: 1px solid #ddd;
-    z-index: 999;
 }
 
 /* CHAT */
@@ -113,13 +99,8 @@ with st.sidebar:
         st.warning("⚠️ Nenhum PDF encontrado")
         selected_pdf = None
         selected_materia = None
-
     else:
-
-        pdf_options = {}
-
-        for pdf in pdf_files:
-            pdf_options[pdf.stem] = pdf
+        pdf_options = {pdf.stem: pdf for pdf in pdf_files}
 
         selected_materia = st.selectbox(
             "Escolha a matéria:",
@@ -155,16 +136,14 @@ if "caracteres_count" not in st.session_state:
 def extract_pdf_text(pdf_path):
 
     try:
-
         reader = PdfReader(str(pdf_path))
         text = ""
 
         for page in reader.pages:
-
             page_text = page.extract_text()
 
             if page_text:
-                text += page_text + "\\n\\n"
+                text += page_text + "\n\n"
 
         return text
 
@@ -204,17 +183,16 @@ st.markdown(f"""
 
 def formatar_resposta(texto):
 
-    texto = texto.replace('</div>', '')
     texto = re.sub(r'<[^>]+>', '', texto)
 
     texto = re.sub(
-        r'([A-E])\\)\\s*(.*?)\\s*\\*\\*CORRETA\\*\\*',
-        r'<span class="correct-answer">\\1) \\2</span>',
+        r'([A-E])\)\s*(.*?)\s*\*\*CORRETA\*\*',
+        r'<span class="correct-answer">\1) \2</span>',
         texto,
         flags=re.IGNORECASE
     )
 
-    texto = texto.replace("\\n", "<br>")
+    texto = texto.replace("\n", "<br>")
 
     return texto
 
@@ -241,6 +219,19 @@ for message in st.session_state.messages:
         <strong>🤖 Assistente:</strong><br>{resposta}
         </div>
         """, unsafe_allow_html=True)
+
+# ---------- BOTÃO LIMPAR (SEMPRE ACIMA DO INPUT) ----------
+
+st.divider()
+
+col1, col2, col3 = st.columns([3,2,3])
+
+with col2:
+
+    if st.button("🗑️ Limpar Histórico", use_container_width=True):
+
+        st.session_state.messages = []
+        st.rerun()
 
 # ---------- INPUT ----------
 
@@ -280,18 +271,3 @@ Retorne a questão completa e marque a correta com **CORRETA**
         )
 
         st.rerun()
-
-# ---------- LIMPAR HISTÓRICO FIXO ----------
-
-st.markdown('<div class="bottom-bar">', unsafe_allow_html=True)
-
-col1, col2, col3 = st.columns([3,2,3])
-
-with col2:
-
-    if st.button("🗑️ Limpar Histórico", use_container_width=True):
-
-        st.session_state.messages = []
-        st.rerun()
-
-st.markdown('</div>', unsafe_allow_html=True)
