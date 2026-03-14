@@ -1,3 +1,11 @@
+Aqui está o **Código 1** completo, mantendo toda a sua lógica original (extração de PDF, formatação complexa de respostas, prompts detalhados e tratamento de erros), mas aplicando **apenas** as alterações de CSS e estrutura HTML do Código 2 para criar o cabeçalho fixo ("Topo Fixo") com o posicionamento solicitado.
+
+As principais mudanças foram:
+1.  Substituição do bloco `<style>` pelo do Código 2 (incluindo `.top-fixed`, `header {visibility: hidden;}`, etc.).
+2.  Remoção dos `st.markdown` soltos no corpo do script que exibiam o título e a matéria.
+3.  Inserção do bloco `div class="top-fixed"` logo após a sidebar e antes do loop do chat, contendo as três linhas de informação solicitadas.
+
+```python
 import streamlit as st
 import cohere
 from pypdf import PdfReader
@@ -6,89 +14,82 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS ATUALIZADO COM TOPO FIXO ----------
+# ---------- CSS (Do Código 2) ----------
 st.markdown("""
 <style>
-    /* Esconder header padrão do Streamlit se desejar (opcional) */
-    header {visibility: hidden;}
 
-    /* Ajustar padding do container principal para não ficar atrás do topo fixo */
-    .block-container {
-        padding-top: 180px; 
-    }
+header {visibility: hidden;}
 
-    /* ESTILO DO TOPO FIXO */
-    .top-fixed {
-        position: fixed;
-        top: 0;
-        left: 300px; /* Largura padrão da sidebar */
-        right: 0;
-        background: white;
-        z-index: 999;
-        border-bottom: 1px solid #ddd;
-        padding: 15px 40px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
+.block-container {
+    padding-top: 150px;
+}
 
-    .main-title { 
-        font-size: 1.35rem !important; 
-        font-weight: 600; 
-        margin-bottom: 0.5rem;
-        color: #333;
-    }
+/* TOPO FIXO */
 
-    .chat-title {
-        font-size: 0.95rem;
-        font-weight: 600;
-        margin-top: 8px;
-        color: #555;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
+.top-fixed {
+    position: fixed;
+    top: 0;
+    left: 300px; /* Ajuste conforme largura da sidebar */
+    right: 0;
+    background: white;
+    z-index: 999;
+    border-bottom: 1px solid #ddd;
+    padding: 15px 40px;
+}
 
-    .materia-info {
-        background-color: #d4edda;
-        border-left: 4px solid #28a745;
-        padding: 10px 12px;
-        border-radius: 5px;
-        margin-top: 8px;
-        color: #155724;
-        display: inline-block;
-        min-width: 200px;
-    }
-    .materia-info strong { color: #155724; }
+.main-title {
+    font-size: 1.35rem;
+    font-weight: 600;
+}
 
-    .user-message {
-        background-color: #e3f2fd;
-        border-left: 4px solid #2196f3;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-    }
-    .assistant-message {
-        background-color: #f5f5f5;
-        border-left: 4px solid #4caf50;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-    }
-    .correct-answer {
-        background-color: #d4edda;
-        border-left: 4px solid #28a745;
-        padding: 8px 12px;
-        border-radius: 5px;
-        margin: 6px 0;
-        font-weight: 600;
-        color: #155724;
-        display: block;
-    }
-    .correct-answer::before { content: "✅ "; }
-    
-    .stSelectbox label { font-weight: 600; }
+.chat-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+.materia-info {
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+    padding: 10px 12px;
+    border-radius: 5px;
+    margin-top: 8px;
+    color: #155724;
+}
+
+/* CHAT */
+
+.user-message {
+    background-color: #e3f2fd;
+    border-left: 4px solid #2196f3;
+    padding: 15px;
+    border-radius: 10px;
+    margin: 10px 0;
+}
+
+.assistant-message {
+    background-color: #f5f5f5;
+    border-left: 4px solid #4caf50;
+    padding: 15px;
+    border-radius: 10px;
+    margin: 10px 0;
+}
+
+.correct-answer {
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+    padding: 8px 12px;
+    border-radius: 5px;
+    margin: 6px 0;
+    font-weight: 600;
+    color: #155724;
+    display: block;
+}
+
+.stSelectbox label { font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SIDEBAR (Lógica Original Mantida) ----------
 with st.sidebar:
     st.header("📖 Selecionar Matéria")
     
@@ -131,7 +132,6 @@ with st.sidebar:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
 
-# ---------- SESSION STATE (Lógica Original Mantida) ----------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -160,7 +160,6 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
-# Atualização do conteúdo do PDF se mudou a seleção
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -175,34 +174,28 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ---------- TOPO FIXO (CORRIGIDO) ----------
-# Usando st.write com unsafe_allow_html para garantir que o HTML seja renderizado
-materia_display = st.session_state.materia_nome if st.session_state.materia_nome else "Nenhuma"
-caracteres_display = f"{st.session_state.caracteres_count:,}"
-
-html_topo = f"""
+# ---------- TOPO FIXO (Substituindo os st.markdown soltos do Código 1) ----------
+st.markdown(f"""
 <div class="top-fixed">
-    <div class="main-title">
-        📚 Selecione uma matéria e faça perguntas sobre o conteúdo!
-    </div>
-    
-    <div class="materia-info">
-        <strong>📚 Matéria Atual:</strong> {materia_display} • 
-        <small>{caracteres_display} caracteres</small>
-    </div>
-    
-    <div class="chat-title">
-        💬 Chat de Dúvidas
-    </div>
+
+<div class="main-title">
+📚 Selecione uma matéria e faça perguntas sobre o conteúdo!
 </div>
-"""
 
-st.write(html_topo, unsafe_allow_html=True)
+<div class="materia-info">
+<strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+<small>{st.session_state.caracteres_count:,} caracteres</small>
+</div>
 
-# Divisor visual abaixo do topo fixo
+<div class="chat-title">
+💬 Chat de Dúvidas
+</div>
+
+</div>
+""", unsafe_allow_html=True)
+
 st.divider()
 
-# ---------- FUNÇÃO DE FORMATAÇÃO (Lógica Original Mantida) ----------
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
     
@@ -264,7 +257,6 @@ def formatar_resposta(texto):
     
     return texto
 
-# ---------- EXIBIÇÃO DO CHAT (Lógica Original Mantida) ----------
 for message in st.session_state.messages:
     if message["role"] == "user":
         # ← ← ← LIMPAR PERGUNTA DO USUÁRIO (remover </div> e tags HTML) ← ← ←
@@ -288,7 +280,6 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# ---------- INPUT E PROCESSAMENTO (Lógica Original Mantida) ----------
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -359,9 +350,9 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# ---------- BOTÃO LIMPAR (Lógica Original Mantida) ----------
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
+```
