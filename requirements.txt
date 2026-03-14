@@ -1,6 +1,3 @@
-streamlit
-cohere
-pypdf
-pathlib
-pytesseract
-pillow
+streamlit>=1.28.0
+cohere>=5.11.0
+pypdf>=4.0.0
