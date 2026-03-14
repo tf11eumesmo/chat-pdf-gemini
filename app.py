@@ -214,8 +214,8 @@ PERGUNTA:
 
 RESPOSTA:
 """
-                # ← ← ← MODELO COM PREFIXO 'models/' ← ← ←
-                model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
+                # ← ← ← MODELO ATUALIZADO PARA gemini-2.0-flash ← ← ←
+                model = genai.GenerativeModel('gemini-2.0-flash')
                 response = model.generate_content(full_prompt)
                 resposta = response.text
                 
