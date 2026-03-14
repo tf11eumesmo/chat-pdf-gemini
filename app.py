@@ -9,59 +9,34 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
-/* OCULTAR HEADER PADRÃO E LINHAS DIVISÓRIAS */
-header {visibility: hidden;}
-hr {display: none !important;}
 
-/* REMOVER BOTÃO DE COLAPSO DA SIDEBAR (HAMBÚRGUER E SETA) */
-button[data-testid="baseButton-header"],
-button[aria-label="Collapse sidebar"],
-div[data-testid="stSidebarCollapsedControl"],
-button[data-testid="stSidebarToggle"] {
+header {visibility: hidden;}
+
+/* REMOVER LINHAS DIVISÓRIAS (HR) */
+hr {
     display: none !important;
 }
 
-/* FIXAR SIDEBAR - SEMPRE VISÍVEL */
-div[data-testid="stSidebar"] {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    height: 100vh !important;
-    z-index: 1000 !important;
-    border-right: 1px solid #ddd !important;
-    background: white !important;
-    overflow-y: auto !important;
+/* Ajuste para o container principal não ficar colado no topo devido ao header fixo */
+.block-container {
+    padding-top: 20px;
 }
 
-/* AJUSTAR CONTEÚDO PRINCIPAL PARA NÃO SOBREPOR SIDEBAR */
-.main .block-container {
-    padding-top: 150px !important;
-    padding-left: 320px !important;
-    max-width: 100% !important;
-}
-
-/* TOPO FIXO DO CONTEÚDO PRINCIPAL */
-.top-fixed {
-    position: fixed;
-    top: 0;
-    left: 300px;
-    right: 0;
+/* HEADER SUPERIOR PERSONALIZADO */
+.custom-header {
     background: white;
-    z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 15px 40px;
+    padding: 20px 40px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
 .main-title {
-    font-size: 1.35rem;
-    font-weight: 600;
-}
-
-.chat-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-top: 8px;
-    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 10px;
 }
 
 .materia-info {
@@ -69,11 +44,12 @@ div[data-testid="stSidebar"] {
     border-left: 4px solid #28a745;
     padding: 10px 12px;
     border-radius: 5px;
-    margin-top: 8px;
+    margin-top: 10px;
     color: #155724;
+    display: inline-block;
 }
 
-/* ESTILOS DO CHAT */
+/* CHAT */
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -101,45 +77,55 @@ div[data-testid="stSidebar"] {
     display: block;
 }
 
-.stSelectbox label { font-weight: 600; }
-
-/* GARANTIR QUE O RODAPÉ NÃO FIQUE SOBREPOSTO */
-footer {visibility: hidden;}
+.stSelectbox label { font-weight: 600; font-size: 1.1rem; }
+.stSelectbox > div { background-color: #f8f9fa; }
 </style>
 """, unsafe_allow_html=True)
 
-with st.sidebar:
-    st.header("📖 Escolha a matéria:")
+# --- LÓGICA DE SELEÇÃO DE PDF (AGORA NO TOPO) ---
+pdf_folder = Path("pdfs")
+if not pdf_folder.exists():
+    pdf_folder.mkdir(parents=True, exist_ok=True)
+
+pdf_files = []
+try:
+    for item in pdf_folder.iterdir():
+        if item.is_file() and item.suffix.lower() == ".pdf":
+            pdf_files.append(item)
+except Exception as e:
+    st.error(f"Erro ao listar PDFs: {e}")
+
+selected_pdf = None
+selected_materia = None
+
+if len(pdf_files) == 0:
+    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'. Por favor, adicione arquivos PDF na pasta 'pdfs' na raiz do projeto.")
+else:
+    pdf_options = {}
+    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+        nome_original = pdf_path.name
+        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+        pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
     
-    pdf_folder = Path("pdfs")
-    if not pdf_folder.exists():
-        pdf_folder.mkdir(parents=True, exist_ok=True)
-    
-    pdf_files = []
-    try:
-        for item in pdf_folder.iterdir():
-            if item.is_file() and item.suffix.lower() == ".pdf":
-                pdf_files.append(item)
-    except Exception as e:
-        st.error(f"Erro ao listar PDFs: {e}")
-    
-    if len(pdf_files) == 0:
-        st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
-        selected_pdf = None
-        selected_materia = None
-    else:
-        pdf_options = {}
-        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-            nome_original = pdf_path.name
-            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
+    # Container para o Header
+    with st.container():
+        st.markdown(f"""
+        <div class="custom-header">
+            <div class="main-title">📚 Chat com PDF - Tire suas dúvidas</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0)
+        col_sel1, col_sel2 = st.columns([1, 3])
+        with col_sel1:
+            selected_materia = st.selectbox("📖 Escolha a matéria:", options=list(pdf_options.keys()), index=0)
+        
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
-    
+
+# --- CONFIGURAÇÃO DA API ---
+if selected_pdf:
     if "COHERE_API_KEY" not in st.secrets:
-        st.error("❌ COHERE_API_KEY não configurada")
+        st.error("❌ COHERE_API_KEY não configurada nos secrets do Streamlit")
         st.stop()
     
     try:
@@ -148,6 +134,7 @@ with st.sidebar:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
 
+# --- ESTADO DA SESSÃO ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -176,6 +163,7 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
+# Atualiza o conteúdo se o PDF mudar
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -188,28 +176,20 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.current_pdf = selected_pdf
         st.session_state.materia_nome = selected_materia
         st.session_state.caracteres_count = len(texto)
-        st.session_state.messages = []
+        st.session_state.messages = [] # Limpa chat ao trocar matéria
+        st.rerun()
 
-# ---------- TOPO FIXO ----------
-st.markdown(f"""
-<div class="top-fixed">
+# --- EXIBIÇÃO DE INFORMAÇÕES DA MATÉRIA ---
+if st.session_state.materia_nome:
+    st.markdown(f"""
+    <div class="materia-info">
+        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+        <small>{st.session_state.caracteres_count:,} caracteres processados</small>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown("---") # Separador visual simples
 
-<div class="main-title">
-📚 Selecione uma matéria e faça perguntas sobre o conteúdo!
-</div>
-
-<div class="materia-info">
-<strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
-<small>{st.session_state.caracteres_count:,} caracteres</small>
-</div>
-
-<div class="chat-title">
-💬 Chat de Dúvidas
-</div>
-
-</div>
-""", unsafe_allow_html=True)
-
+# --- FUNÇÃO DE FORMATAÇÃO ---
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
     
@@ -265,6 +245,7 @@ def formatar_resposta(texto):
     
     return texto
 
+# --- EXIBIÇÃO DO CHAT ---
 for message in st.session_state.messages:
     if message["role"] == "user":
         pergunta_limpa = message["content"]
@@ -287,6 +268,7 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
+# --- INPUT DO USUÁRIO ---
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -355,6 +337,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
+# --- BOTÃO LIMPAR ---
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
