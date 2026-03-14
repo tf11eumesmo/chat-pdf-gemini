@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS Personalizado
+# CSS Personalizado (COM OCULTAÇÃO DO BOTÃO GERENCIAR)
 st.markdown("""
 <style>
     .correct-answer {
@@ -60,12 +60,25 @@ st.markdown("""
         font-weight: 600;
         margin-bottom: 1rem;
     }
+    
+    /* ========== OCULTAR ELEMENTOS DO STREAMLIT CLOUD ========== */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stAppHeader {visibility: hidden;}
     header {visibility: hidden;}
     .stApp > div[data-testid="stToolbar"] {visibility: hidden;}
     section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden;}
+    
+    /* Botão "Gerenciar Aplicativo" */
+    div[data-testid="stDecoration"] {display: none !important;}
+    .stDeployButton {display: none !important;}
+    button[title="Gerenciar aplicativo"] {display: none !important;}
+    button[title="Manage app"] {display: none !important;}
+    [data-testid="stSidebarContent"] .stDeployButton {display: none !important;}
+    
+    /* Forçar ocultação com !important */
+    .st-emotion-cache-1avcm0n {display: none !important;}
+    .st-emotion-cache-nt55v3 {display: none !important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -210,8 +223,6 @@ for message in st.session_state.messages:
 def formatar_resposta(texto):
     """Destaca alternativas corretas com ✅ e fundo verde"""
     
-    # Padrão 1: Alternativa correta marcada com **CORRETA** ou similar
-    # Ex: "A) Texto **CORRETA**" → "✅ A) Texto" com fundo verde
     padroes_correta = [
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*Correta\*\*', r'<span class="correct-answer">\1) \2</span>'),
@@ -224,7 +235,6 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_correta:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    # Padrão 2: IA indica "Alternativa A está correta" → destacar A)
     padroes_indicacao = [
         (r'(Alternativa|Letra)\s*([A-E])\s*(está|é|:)\s*correta', r'<span class="correct-answer">\2) Alternativa correta</span>'),
         (r'Resposta:\s*([A-E])', r'<span class="correct-answer">\1) Resposta correta</span>'),
@@ -234,13 +244,8 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_indicacao:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    # Padrão 3: Formatar alternativas normais (sem destaque)
     texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
-    
-    # Remover asteriscos duplos restantes
     texto = texto.replace('**', '')
-    
-    # Quebras de linha para HTML
     texto = texto.replace('\n', '<br>')
     
     return texto
