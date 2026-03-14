@@ -17,11 +17,15 @@ st.markdown("""
     .correct-answer {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
-        padding: 10px 15px;
+        padding: 8px 12px;
         border-radius: 5px;
-        margin: 8px 0;
+        margin: 6px 0;
         font-weight: 600;
-        display: inline-block;
+        color: #155724;
+        display: block;
+    }
+    .correct-answer::before {
+        content: "✅ ";
     }
     .materia-info {
         background-color: #d4edda;
@@ -51,18 +55,15 @@ st.markdown("""
     .stSelectbox label {
         font-weight: 600;
     }
-    /* Título menor */
     .main-title {
         font-size: 1.5rem !important;
         font-weight: 600;
         margin-bottom: 1rem;
     }
-    /* Esconder elementos padrão do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stAppHeader {visibility: hidden;}
     header {visibility: hidden;}
-    /* Esconder stHeaderActionElements (três pontinhos) */
     .stApp > div[data-testid="stToolbar"] {visibility: hidden;}
     section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden;}
 </style>
@@ -91,11 +92,9 @@ with st.sidebar:
     
     pdf_folder = Path("pdfs")
     
-    # Criar pasta se não existir
     if not pdf_folder.exists():
         pdf_folder.mkdir(parents=True, exist_ok=True)
     
-    # Listar PDFs de forma robusta (aceita qualquer nome)
     pdf_files = []
     try:
         for item in pdf_folder.iterdir():
@@ -109,7 +108,6 @@ with st.sidebar:
         selected_pdf = None
         selected_materia = None
     else:
-        # Criar dicionário mantendo nomes originais
         pdf_options = {}
         for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
             nome_original = pdf_path.name
@@ -119,7 +117,6 @@ with st.sidebar:
                 'original_name': nome_original
             }
         
-        # Dropdown para selecionar matéria
         selected_materia = st.selectbox(
             "Escolha a matéria:",
             options=list(pdf_options.keys()),
@@ -178,7 +175,7 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.current_pdf = selected_pdf
         st.session_state.materia_nome = selected_materia
         st.session_state.caracteres_count = len(texto)
-        st.session_state.messages = []  # Limpar chat ao trocar de matéria
+        st.session_state.messages = []
 
 # ==================== MOSTRAR MATÉRIA SELECIONADA (VERDE) ====================
 if st.session_state.pdf_content:
@@ -194,7 +191,6 @@ st.divider()
 # ==================== ÁREA DO CHAT ====================
 st.header("💬 Chat de Dúvidas")
 
-# Mostrar histórico de mensagens
 for message in st.session_state.messages:
     if message["role"] == "user":
         st.markdown(f"""
@@ -212,20 +208,34 @@ for message in st.session_state.messages:
 
 # ==================== FUNÇÃO PARA FORMATAR RESPOSTA ====================
 def formatar_resposta(texto):
-    """Destaca alternativas corretas e formata a resposta"""
-    padroes = [
-        (r'\*\*CORRETA\*\*', '<span class="correct-answer">✅ CORRETA</span>'),
-        (r'\*\*Correta\*\*', '<span class="correct-answer">✅ Correta</span>'),
-        (r'(CORRETA|Correta|correta):', r'<span class="correct-answer">\1:</span>'),
-        (r'✅\s*(CORRETA|Correta|correta)', r'<span class="correct-answer">✅ \1</span>'),
-        (r'(Alternativa|Letra)\s*([A-E])\s*[-–:]\s*Correta', r'<span class="correct-answer">\1 \2 - Correta</span>'),
+    """Destaca alternativas corretas com ✅ e fundo verde"""
+    
+    # Padrão 1: Alternativa correta marcada com **CORRETA** ou similar
+    # Ex: "A) Texto **CORRETA**" → "✅ A) Texto" com fundo verde
+    padroes_correta = [
+        (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*\*\*Correta\*\*', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*CORRETA:', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*✅\s*CORRETA', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*\(Correta\)', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*\(CORRETA\)', r'<span class="correct-answer">\1) \2</span>'),
     ]
     
-    for padrao, substituicao in padroes:
+    for padrao, substituicao in padroes_correta:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    # Formatar alternativas: A) texto → <strong>A)</strong> texto
-    texto = re.sub(r'(\n|^)([A-E])\)', r'\1<strong>\2)</strong>', texto, flags=re.IGNORECASE)
+    # Padrão 2: IA indica "Alternativa A está correta" → destacar A)
+    padroes_indicacao = [
+        (r'(Alternativa|Letra)\s*([A-E])\s*(está|é|:)\s*correta', r'<span class="correct-answer">\2) Alternativa correta</span>'),
+        (r'Resposta:\s*([A-E])', r'<span class="correct-answer">\1) Resposta correta</span>'),
+        (r'Gabarito:\s*([A-E])', r'<span class="correct-answer">\1) Gabarito</span>'),
+    ]
+    
+    for padrao, substituicao in padroes_indicacao:
+        texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
+    
+    # Padrão 3: Formatar alternativas normais (sem destaque)
+    texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
     
     # Remover asteriscos duplos restantes
     texto = texto.replace('**', '')
@@ -240,26 +250,25 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
-        # Adicionar mensagem do usuário
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # Mostrar mensagem do usuário
         st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{prompt}
         </div>
         """, unsafe_allow_html=True)
         
-        # Gerar resposta da IA
         with st.spinner("Analisando..."):
             try:
                 full_prompt = f"""
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
-REGRAS:
+REGRAS OBRIGATÓRIAS:
 1. Responda APENAS com base no conteúdo do material fornecido
-2. Se houver alternativas (A, B, C, D, E), indique qual está **CORRETA**
-3. Destaque a correta com a palavra **CORRETA** em negrito
+2. Se houver questões com alternativas (A, B, C, D, E), você DEVE indicar qual está correta
+3. Para indicar a alternativa correta, use EXATAMENTE este formato:
+   - Escreva a alternativa completa seguida de **CORRETA**
+   - Exemplo: "A) Esta é a resposta **CORRETA**"
 4. Se não encontrar a informação, diga: "Não encontrei essa informação no material"
 5. Seja claro e objetivo
 
@@ -269,20 +278,17 @@ MATERIAL:
 PERGUNTA:
 {prompt}
 
-RESPOSTA (indique **CORRETA** se houver alternativas):
+RESPOSTA (use **CORRETA** para destacar a alternativa certa):
 """
                 
-                # Chamada à NOVA API google.genai
                 response = client.models.generate_content(
                     model='gemini-1.5-flash',
                     contents=full_prompt
                 )
                 resposta = response.text
                 
-                # Adicionar resposta ao histórico
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
                 
-                # Mostrar resposta formatada
                 resposta_formatada = formatar_resposta(resposta)
                 st.markdown(f"""
                 <div class="assistant-message">
