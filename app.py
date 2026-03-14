@@ -1,17 +1,11 @@
 import streamlit as st
-from groq import Groq
+import google.generativeai as genai
 from pypdf import PdfReader
 from pathlib import Path
 import re
 
-# Configuração da página
-st.set_page_config(
-    page_title="Chat com PDF",
-    page_icon="📚",
-    layout="wide"
-)
+st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# CSS Personalizado (apenas estilização importante)
 st.markdown("""
 <style>
     .correct-answer {
@@ -24,9 +18,7 @@ st.markdown("""
         color: #155724;
         display: block;
     }
-    .correct-answer::before {
-        content: "✅ ";
-    }
+    .correct-answer::before { content: "✅ "; }
     .materia-info {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
@@ -35,9 +27,7 @@ st.markdown("""
         margin: 10px 0;
         color: #155724;
     }
-    .materia-info strong {
-        color: #155724;
-    }
+    .materia-info strong { color: #155724; }
     .user-message {
         background-color: #e3f2fd;
         border-left: 4px solid #2196f3;
@@ -52,23 +42,14 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
-    .stSelectbox label {
-        font-weight: 600;
-    }
-    .main-title {
-        font-size: 1.5rem !important;
-        font-weight: 600;
-        margin-bottom: 1rem;
-    }
+    .stSelectbox label { font-weight: 600; }
+    .main-title { font-size: 1.5rem !important; font-weight: 600; margin-bottom: 1rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# Título principal
 st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>', unsafe_allow_html=True)
 
-# ==================== BARRA LATERAL ====================
 with st.sidebar:
-    # ✅ "Selecionar Matéria" NO TOPO da sidebar
     st.header("📖 Selecionar Matéria")
     
     pdf_folder = Path("pdfs")
@@ -92,36 +73,25 @@ with st.sidebar:
         for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
             nome_original = pdf_path.name
             nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-            pdf_options[nome_exibicao] = {
-                'path': pdf_path,
-                'original_name': nome_original
-            }
+            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
         
-        selected_materia = st.selectbox(
-            "Escolha a matéria:",
-            options=list(pdf_options.keys()),
-            index=0,
-            help="Selecione o PDF que será usado como fonte para as respostas"
-        )
-        
+        selected_materia = st.selectbox("Escolha a matéria:", options=list(pdf_options.keys()), index=0)
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
     
-    # Divider após seleção de matéria
     st.divider()
     
-    # Configurar Groq API (apenas erro se falhar)
-    if "GROQ_API_KEY" not in st.secrets:
-        st.error("❌ GROQ_API_KEY não configurada")
+    # Configurar Gemini API
+    if "GEMINI_API_KEY" not in st.secrets:
+        st.error("❌ GEMINI_API_KEY não configurada")
         st.stop()
     
     try:
-        client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     except Exception as e:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
 
-# ==================== ESTADO DA SESSÃO ====================
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -133,7 +103,6 @@ if "materia_nome" not in st.session_state:
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
 
-# ==================== FUNÇÃO PARA EXTRAIR TEXTO ====================
 def extract_pdf_text(pdf_path):
     try:
         reader = PdfReader(str(pdf_path))
@@ -151,7 +120,6 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
-# ==================== CARREGAR PDF QUANDO SELECIONADO ====================
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -166,7 +134,6 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ==================== MOSTRAR MATÉRIA SELECIONADA ====================
 if st.session_state.pdf_content:
     st.markdown(f"""
     <div class="materia-info">
@@ -176,8 +143,6 @@ if st.session_state.pdf_content:
     """, unsafe_allow_html=True)
 
 st.divider()
-
-# ==================== ÁREA DO CHAT ====================
 st.header("💬 Chat de Dúvidas")
 
 for message in st.session_state.messages:
@@ -195,9 +160,7 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# ==================== FUNÇÃO PARA FORMATAR RESPOSTA ====================
 def formatar_resposta(texto):
-    # Destacar alternativas corretas com ✅ e fundo verde
     padroes_correta = [
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*Correta\*\*', r'<span class="correct-answer">\1) \2</span>'),
@@ -209,7 +172,6 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_correta:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    # Destacar indicações de resposta correta
     padroes_indicacao = [
         (r'(Alternativa|Letra)\s*([A-E])\s*(está|é|:)\s*correta', r'<span class="correct-answer">\2) Alternativa correta</span>'),
         (r'Resposta:\s*([A-E])', r'<span class="correct-answer">\1) Resposta correta</span>'),
@@ -218,23 +180,15 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_indicacao:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    # Formatar alternativas normais: A) texto → <strong>A)</strong> texto
     texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
-    
-    # Remover asteriscos duplos restantes (markdown)
     texto = texto.replace('**', '')
-    
-    # Quebras de linha para HTML
     texto = texto.replace('\n', '<br>')
-    
     return texto
 
-# ==================== INPUT DO USUÁRIO ====================
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
-        # Adicionar mensagem do usuário
         st.session_state.messages.append({"role": "user", "content": prompt})
         st.markdown(f"""
         <div class="user-message">
@@ -244,8 +198,8 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         
         with st.spinner("Analisando..."):
             try:
-                # Limitar texto para ~100k caracteres (Groq tem limite de contexto)
-                texto_limitado = st.session_state.pdf_content[:100000]
+                # ← ← ← SEM LIMITE DE REDUÇÃO (Gemini suporta 1M tokens) ← ← ←
+                texto_completo = st.session_state.pdf_content
                 
                 full_prompt = f"""
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
@@ -259,8 +213,8 @@ REGRAS OBRIGATÓRIAS:
 4. Se não encontrar a informação no material, diga: "Não encontrei essa informação no material fornecido"
 5. Seja claro, didático e objetivo
 
-MATERIAL DE ESTUDO:
-{texto_limitado}
+MATERIAL DE ESTUDO (COMPLETO):
+{texto_completo}
 
 PERGUNTA DO ALUNO:
 {prompt}
@@ -268,19 +222,12 @@ PERGUNTA DO ALUNO:
 RESPOSTA (use **CORRETA** para destacar a alternativa certa):
 """
                 
-                # ← ← ← CHAMADA À GROQ API COM MODELO ATUALIZADO ← ← ←
-                response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",  # ✅ MODELO CORRETO (2026)
-                    messages=[{"role": "user", "content": full_prompt}],
-                    temperature=0.3,
-                    max_tokens=2048
-                )
-                resposta = response.choices[0].message.content
+                # ← ← ← MODELO CORRETO: gemini-1.5-flash (free tier funciona) ← ← ←
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                response = model.generate_content(full_prompt)
+                resposta = response.text
                 
-                # Adicionar resposta ao histórico
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
-                
-                # Mostrar resposta formatada
                 resposta_formatada = formatar_resposta(resposta)
                 st.markdown(f"""
                 <div class="assistant-message">
@@ -293,7 +240,6 @@ RESPOSTA (use **CORRETA** para destacar a alternativa certa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# ==================== BOTÃO PARA LIMPAR CHAT ====================
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
