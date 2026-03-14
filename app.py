@@ -18,7 +18,7 @@ hr {
 }
 
 .block-container {
-    padding-top: 130px;
+    padding-top: 140px;
 }
 
 /* TOPO FIXO */
@@ -30,19 +30,25 @@ hr {
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 12px 40px;
+    padding: 15px 40px;
 }
 
-.main-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-bottom: 6px;
+.header-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 8px;
 }
 
-.chat-title {
-    font-size: 0.9rem;
+.header-label {
+    font-size: 1rem;
     font-weight: 600;
-    margin-top: 4px;
+    white-space: nowrap;
+}
+
+.header-select {
+    min-width: 250px;
+    flex: 1;
 }
 
 .materia-info {
@@ -50,9 +56,16 @@ hr {
     border-left: 4px solid #28a745;
     padding: 8px 12px;
     border-radius: 5px;
-    margin-top: 4px;
+    margin-top: 8px;
     color: #155724;
     font-size: 0.9rem;
+}
+
+.chat-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 8px;
+    color: #666;
 }
 
 /* CHAT */
@@ -83,14 +96,14 @@ hr {
     display: block;
 }
 
-/* Alinhar label e selectbox na mesma linha */
-.stSelectbox > div {
-    min-width: 250px;
+/* Esconder label do selectbox */
+.stSelectbox label {
+    display: none;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SELEÇÃO DE MATÉRIA (FORA DA SIDEBAR - INLINE) ----------
+# ---------- SELEÇÃO DE MATÉRIA ----------
 pdf_folder = Path("pdfs")
 if not pdf_folder.exists():
     pdf_folder.mkdir(parents=True, exist_ok=True)
@@ -103,25 +116,21 @@ try:
 except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
-# Layout inline: Label + Selectbox na mesma linha
-col_label, col_select = st.columns([1, 4], gap="small")
-with col_label:
-    st.markdown('<div style="padding-top:10px;"><strong>📖 Escolha a matéria:</strong></div>', unsafe_allow_html=True)
-with col_select:
-    if len(pdf_files) == 0:
-        st.warning("⚠️ Nenhum PDF encontrado")
-        selected_pdf = None
-        selected_materia = None
-    else:
-        pdf_options = {}
-        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-            nome_original = pdf_path.name
-            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-        
-        selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
-        selected_pdf_info = pdf_options[selected_materia]
-        selected_pdf = selected_pdf_info['path']
+selected_pdf = None
+selected_materia = None
+
+if len(pdf_files) == 0:
+    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
+else:
+    pdf_options = {}
+    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+        nome_original = pdf_path.name
+        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+        pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
+    
+    selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
+    selected_pdf_info = pdf_options[selected_materia]
+    selected_pdf = selected_pdf_info['path']
 
 # API Key check
 if "COHERE_API_KEY" not in st.secrets:
@@ -177,10 +186,22 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ---------- TOPO FIXO ----------
+# ---------- TOPO FIXO COM SELECTBOX INLINE ----------
+if len(pdf_files) > 0:
+    selectbox_html = f"""
+    <div class="header-select">
+        {st.session_state.get('_selectbox_html', '')}
+    </div>
+    """
+else:
+    selectbox_html = '<span style="color: #d32f2f;">⚠️ Nenhum PDF</span>'
+
 st.markdown(f"""
 <div class="top-fixed">
-    <div class="main-title">📖 Escolha a matéria</div>
+    <div class="header-row">
+        <span class="header-label">📖 Escolha a matéria:</span>
+        {selectbox_html}
+    </div>
     <div class="materia-info">
         <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
         <small>{st.session_state.caracteres_count:,} caracteres</small>
@@ -188,6 +209,10 @@ st.markdown(f"""
     <div class="chat-title">💬 Chat de Dúvidas</div>
 </div>
 """, unsafe_allow_html=True)
+
+# Renderizar o selectbox do Streamlit (será escondido pelo CSS e substituído pelo HTML acima)
+if len(pdf_files) > 0:
+    st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select_visible", label_visibility="collapsed")
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
