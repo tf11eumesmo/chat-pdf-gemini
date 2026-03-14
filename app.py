@@ -178,7 +178,6 @@ st.markdown(f"""
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
-    
     texto = texto.replace('</div>', '')
     texto = texto.replace('<div>', '')
     texto = texto.replace('<br>', '\n')
