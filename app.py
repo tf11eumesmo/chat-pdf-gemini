@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+import google.generativeai as genai  # ← Biblioteca antiga (funciona!)
 from pypdf import PdfReader
 from pathlib import Path
 import re
@@ -198,31 +198,28 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         
         with st.spinner("Analisando..."):
             try:
-                # ← ← ← SEM LIMITE DE REDUÇÃO (Gemini suporta 1M tokens) ← ← ←
+                # ← ← ← SEM LIMITE: Gemini suporta PDFs gigantes ← ← ←
                 texto_completo = st.session_state.pdf_content
                 
                 full_prompt = f"""
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
-REGRAS OBRIGATÓRIAS:
-1. Responda APENAS com base no conteúdo do material fornecido abaixo
-2. Se houver questões com alternativas (A, B, C, D, E), você DEVE indicar qual está correta
-3. Para indicar a alternativa correta, use EXATAMENTE este formato:
-   - Escreva a alternativa completa seguida de **CORRETA**
-   - Exemplo: "A) Esta é a resposta **CORRETA**"
-4. Se não encontrar a informação no material, diga: "Não encontrei essa informação no material fornecido"
-5. Seja claro, didático e objetivo
+REGRAS:
+1. Responda APENAS com base no material abaixo
+2. Se houver alternativas (A, B, C, D, E), indique qual está **CORRETA**
+3. Formato: "A) Texto **CORRETA**"
+4. Se não encontrar: "Não encontrei essa informação no material"
 
-MATERIAL DE ESTUDO (COMPLETO):
+MATERIAL:
 {texto_completo}
 
-PERGUNTA DO ALUNO:
+PERGUNTA:
 {prompt}
 
-RESPOSTA (use **CORRETA** para destacar a alternativa certa):
+RESPOSTA:
 """
                 
-                # ← ← ← MODELO CORRETO: gemini-1.5-flash (free tier funciona) ← ← ←
+                # ← ← ← MODELO CORRETO PARA FREE TIER ← ← ←
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(full_prompt)
                 resposta = response.text
