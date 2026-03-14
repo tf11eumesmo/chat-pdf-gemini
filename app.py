@@ -1,3 +1,10 @@
+Aqui está o código atualizado com as três alterações solicitadas:
+
+1.  **Sidebar:** O título foi alterado para `📖 Escolha a matéria:` e o rótulo do seletor (`Escolha a matéria:`) foi removido (deixando apenas a caixa de seleção).
+2.  **Topo Fixo:** O texto `💬 Chat de Dúvidas` agora está centralizado usando CSS (`text-align: center`).
+3.  **Restante:** Toda a lógica original do Código 1 foi mantida.
+
+```python
 import streamlit as st
 import cohere
 from pypdf import PdfReader
@@ -6,7 +13,7 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS (Do Código 2) ----------
+# ---------- CSS ----------
 st.markdown("""
 <style>
 
@@ -38,6 +45,7 @@ header {visibility: hidden;}
     font-size: 0.95rem;
     font-weight: 600;
     margin-top: 8px;
+    text-align: center; /* CENTRALIZADO CONFORME SOLICITADO */
 }
 
 .materia-info {
@@ -83,7 +91,8 @@ header {visibility: hidden;}
 """, unsafe_allow_html=True)
 
 with st.sidebar:
-    st.header("📖 Selecionar Matéria")
+    # ALTERAÇÃO: Título da Sidebar modificado
+    st.header("📖 Escolha a matéria:")
     
     pdf_folder = Path("pdfs")
     if not pdf_folder.exists():
@@ -108,7 +117,8 @@ with st.sidebar:
             nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
             pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
         
-        selected_materia = st.selectbox("Escolha a matéria:", options=list(pdf_options.keys()), index=0)
+        # ALTERAÇÃO: Removido o label "Escolha a matéria:", deixando apenas o selectbox
+        selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0)
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
     
@@ -166,7 +176,7 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ---------- TOPO FIXO (Substituindo os st.markdown soltos do Código 1) ----------
+# ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
 
@@ -347,3 +357,4 @@ with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
+```
