@@ -63,10 +63,9 @@ button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: no
 
 .stSelectbox label { font-weight: 600; }
 
-/* Upload button styling */
-.stFileUploader {
-    margin-bottom: 0px;
-}
+/* INPUT DE ARQUIVO COMPACTO */
+.stFileUploader label { font-size: 0.85rem; }
+.stFileUploader { margin-bottom: 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -221,7 +220,7 @@ with chat_container:
             
             if "image_data" in message and message["image_data"]:
                 b64_img = base64.b64encode(message["image_data"]).decode()
-                html_content += f'<br><img src="image/jpeg;base64,{b64_img}" class="chat-image-preview">'
+                html_content += f'<br><img src="data:image/jpeg;base64,{b64_img}" class="chat-image-preview">'
             
             st.markdown(f"""
             <div class="user-message">
@@ -239,22 +238,20 @@ with chat_container:
 # ---------- INPUTS (IMAGEM + TEXTO NA MESMA LINHA) ----------
 st.markdown("---")
 
-col_upload, col_input = st.columns([1, 4])
+col_upload, col_text, col_button = st.columns([2, 6, 1])
 
 with col_upload:
-    uploaded_file = st.file_uploader("Enviar Foto", type=['png', 'jpg', 'jpeg'], 
-                                      key="img_uploader", label_visibility="collapsed")
+    uploaded_file = st.file_uploader("📷 Enviar Foto", type=['png', 'jpg', 'jpeg'], key="img_uploader", label_visibility="collapsed")
     if uploaded_file is not None:
         st.session_state.current_image = uploaded_file.getvalue()
 
-with col_input:
+with col_text:
     prompt = st.chat_input("Digite sua questão ou envie uma foto...")
 
-# Botão para limpar imagem
-if st.session_state.current_image:
-    col_empty, col_btn, col_empty2 = st.columns([3, 2, 3])
-    with col_btn:
-        if st.button("🗑️ Remover Foto", use_container_width=True):
+# Botão para limpar imagem (aparece só quando tem imagem)
+if st.session_state.current_image is not None:
+    with col_button:
+        if st.button("🗑️", key="clear_img", help="Remover imagem"):
             st.session_state.current_image = None
             st.rerun()
 
@@ -263,6 +260,7 @@ if prompt or st.session_state.current_image:
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria (PDF) primeiro!")
     else:
+        # Salvar mensagem do usuário
         user_msg = {
             "role": "user", 
             "content": prompt if prompt else "(Questão enviada via imagem)",
@@ -270,11 +268,12 @@ if prompt or st.session_state.current_image:
         }
         st.session_state.messages.append(user_msg)
         
+        # Exibir imediatamente no chat (UX)
         with chat_container:
             html_content = f"<strong>👤 Você:</strong><br>{prompt if prompt else '(Questão enviada via imagem)'}"
             if st.session_state.current_image:
                 b64_img = base64.b64encode(st.session_state.current_image).decode()
-                html_content += f'<br><img src="image/jpeg;base64,{b64_img}" class="chat-image-preview">'
+                html_content += f'<br><img src="data:image/jpeg;base64,{b64_img}" class="chat-image-preview">'
             
             st.markdown(f"""
             <div class="user-message">
@@ -282,8 +281,10 @@ if prompt or st.session_state.current_image:
             </div>
             """, unsafe_allow_html=True)
         
+        # Preparar dados para API
         texto_limitado = st.session_state.pdf_content[:100000]
         
+        # Construir prompt considerando se há imagem ou não
         if st.session_state.current_image:
             instruction_msg = """
 Você é um professor assistente. 
@@ -335,6 +336,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                     </div>
                     """, unsafe_allow_html=True)
                 
+                # Limpar imagem após envio
                 st.session_state.current_image = None
                 st.rerun()
                 
