@@ -103,15 +103,24 @@ button[kind="headerNoPadding"] {
     bottom: 0;
     left: 300px;
     right: 0;
-    height: 60px;
-    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,1));
+    background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 20%);
     z-index: 999;
+    padding: 40px 40px 20px 40px;
     pointer-events: none;
 }
 
-/* ESCONDER ELEMENTOS ABAIXO DO CHAT INPUT */
-.stChatInputContainer ~ div {
-    display: none !important;
+.bottom-fixed-content {
+    background: white;
+    border-top: 1px solid #ddd;
+    padding: 15px 40px;
+    text-align: center;
+    pointer-events: auto;
+}
+
+.bottom-fixed-text {
+    font-size: 0.85rem;
+    color: #666;
+    margin: 0;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -208,9 +217,18 @@ st.markdown(f"""
 </div>
 
 <div class="chat-title">
-💬 Chat de Dúvidas
+💬 Chat de Questões
 </div>
 
+</div>
+""", unsafe_allow_html=True)
+
+# ---------- TARJA INFERIOR FIXA ----------
+st.markdown("""
+<div class="bottom-fixed">
+    <div class="bottom-fixed-content">
+        <p class="bottom-fixed-text">📚 Material de estudo • Todas as respostas baseadas no PDF selecionado</p>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -364,8 +382,3 @@ with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-
-# ---------- TARJA FLUTUANTE INFERIOR ----------
-st.markdown("""
-<div class="bottom-fixed"></div>
-""", unsafe_allow_html=True)
