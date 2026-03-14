@@ -6,35 +6,41 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS + JAVASCRIPT PARA LAYOUT CORRETO ----------
+# ---------- CSS ----------
 st.markdown("""
 <style>
-/* OCULTAR CABEÇALHO PADRÃO */
-header {visibility: hidden !important;}
-
-/* REMOVER LINHAS DIVISÓRIAS */
+/* OCULTAR HEADER PADRÃO E LINHAS DIVISÓRIAS */
+header {visibility: hidden;}
 hr {display: none !important;}
 
-/* SIDEBAR FIXA */
-div[data-testid="stSidebarCollapseButton"] {display: none !important;}
-section[data-testid="stSidebar"] button[kind="header"],
-section[data-testid="stSidebar"] button[kind="headerNoPadding"] {display: none !important;}
+/* REMOVER BOTÃO DE COLAPSO DA SIDEBAR (HAMBÚRGUER E SETA) */
+button[data-testid="baseButton-header"],
+button[aria-label="Collapse sidebar"],
+div[data-testid="stSidebarCollapsedControl"],
+button[data-testid="stSidebarToggle"] {
+    display: none !important;
+}
 
-section[data-testid="stSidebar"] {
-    width: 300px !important;
-    min-width: 300px !important;
-    max-width: 300px !important;
+/* FIXAR SIDEBAR - SEMPRE VISÍVEL */
+div[data-testid="stSidebar"] {
     position: fixed !important;
     left: 0 !important;
     top: 0 !important;
     height: 100vh !important;
-    overflow-y: auto !important;
-    background-color: #f8f9fa !important;
-    border-right: 1px solid #ddd !important;
     z-index: 1000 !important;
+    border-right: 1px solid #ddd !important;
+    background: white !important;
+    overflow-y: auto !important;
 }
 
-/* TOPO FIXO */
+/* AJUSTAR CONTEÚDO PRINCIPAL PARA NÃO SOBREPOR SIDEBAR */
+.main .block-container {
+    padding-top: 150px !important;
+    padding-left: 320px !important;
+    max-width: 100% !important;
+}
+
+/* TOPO FIXO DO CONTEÚDO PRINCIPAL */
 .top-fixed {
     position: fixed;
     top: 0;
@@ -44,11 +50,19 @@ section[data-testid="stSidebar"] {
     z-index: 999;
     border-bottom: 1px solid #ddd;
     padding: 15px 40px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-.main-title {font-size: 1.35rem; font-weight: 600; color: #333;}
-.chat-title {font-size: 0.95rem; font-weight: 600; margin-top: 8px; text-align: center; color: #555;}
+.main-title {
+    font-size: 1.35rem;
+    font-weight: 600;
+}
+
+.chat-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 8px;
+    text-align: center;
+}
 
 .materia-info {
     background-color: #d4edda;
@@ -57,10 +71,9 @@ section[data-testid="stSidebar"] {
     border-radius: 5px;
     margin-top: 8px;
     color: #155724;
-    font-size: 0.9rem;
 }
 
-/* CHAT */
+/* ESTILOS DO CHAT */
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -88,30 +101,11 @@ section[data-testid="stSidebar"] {
     display: block;
 }
 
-.stSelectbox label {font-weight: 600;}
-</style>
+.stSelectbox label { font-weight: 600; }
 
-<script>
-// JavaScript para corrigir o layout após carregamento
-window.addEventListener('load', function() {
-    setTimeout(function() {
-        // Força margem no conteúdo principal
-        var mainContent = document.querySelector('.main > div');
-        if (mainContent) {
-            mainContent.style.marginLeft = '300px';
-            mainContent.style.width = 'calc(100% - 300px)';
-        }
-        
-        // Ajusta container do chat
-        var chatContainer = document.querySelector('.stChatInputContainer');
-        if (chatContainer) {
-            chatContainer.style.maxWidth = '100%';
-            chatContainer.style.marginLeft = '0';
-            chatContainer.style.marginRight = '0';
-        }
-    }, 100);
-});
-</script>
+/* GARANTIR QUE O RODAPÉ NÃO FIQUE SOBREPOSTO */
+footer {visibility: hidden;}
+</style>
 """, unsafe_allow_html=True)
 
 with st.sidebar:
