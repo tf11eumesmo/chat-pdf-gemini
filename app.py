@@ -1,4 +1,4 @@
-Aqui está o **Código 1 completo**, mantendo toda a sua lógica de formatação, prompts e tratamento de erros, mas aplicando o **posicionamento visual (layout)** do Código 2 (com o topo fixo e o CSS ajustado).
+Aqui está o código completo. Mantive toda a lógica, formatação de respostas e estrutura do **Código 1**, alterando apenas o CSS e a posição dos elementos de título para ficarem fixos no topo, conforme o **Código 2**.
 
 ```python
 import streamlit as st
@@ -9,22 +9,20 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS (Fusão do Layout do Código 2 com Estilos do Código 1) ----------
+# ---------- CSS (Layout do Código 2) ----------
 st.markdown("""
 <style>
-    /* Esconde o header padrão do Streamlit */
     header {visibility: hidden;}
 
-    /* Ajusta o padding para não ficar atrás do topo fixo */
     .block-container {
-        padding-top: 160px; 
+        padding-top: 150px;
     }
 
-    /* TOPO FIXO (Estilo do Código 2) */
+    /* TOPO FIXO */
     .top-fixed {
         position: fixed;
         top: 0;
-        left: 300px; /* Largura aproximada da sidebar */
+        left: 300px; /* Largura padrão da sidebar */
         right: 0;
         background: white;
         z-index: 999;
@@ -36,7 +34,7 @@ st.markdown("""
     .main-title {
         font-size: 1.35rem;
         font-weight: 600;
-        color: #333;
+        margin-bottom: 8px;
     }
 
     .chat-title {
@@ -44,23 +42,32 @@ st.markdown("""
         font-weight: 600;
         margin-top: 8px;
         color: #555;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 
-    /* INFO DA MATÉRIA (Estilo do Código 1 adaptado) */
+    /* ESTILOS DE MENSAGEM (Mantendo a lógica visual do Código 1) */
+    .correct-answer {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 8px 12px;
+        border-radius: 5px;
+        margin: 6px 0;
+        font-weight: 600;
+        color: #155724;
+        display: block;
+    }
+    .correct-answer::before { content: "✅ "; }
+    
     .materia-info {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
-        padding: 10px 15px;
+        padding: 10px 12px;
         border-radius: 5px;
-        margin-top: 10px;
+        margin-top: 8px;
         color: #155724;
         display: inline-block;
     }
     .materia-info strong { color: #155724; }
-
-    /* MENSAGENS DO CHAT (Estilo do Código 1) */
+    
     .user-message {
         background-color: #e3f2fd;
         border-left: 4px solid #2196f3;
@@ -75,25 +82,11 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
-
-    /* RESPOSTA CORRETA (Estilo do Código 1) */
-    .correct-answer {
-        background-color: #d4edda;
-        border-left: 4px solid #28a745;
-        padding: 8px 12px;
-        border-radius: 5px;
-        margin: 6px 0;
-        font-weight: 600;
-        color: #155724;
-        display: block;
-    }
-    .correct-answer::before { content: "✅ "; }
-    
     .stSelectbox label { font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SIDEBAR (Lógica do Código 1) ----------
+# ---------- SIDEBAR ----------
 with st.sidebar:
     st.header("📖 Selecionar Matéria")
     
@@ -136,7 +129,7 @@ with st.sidebar:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
 
-# ---------- SESSION STATE (Lógica do Código 1) ----------
+# ---------- SESSION STATE ----------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -148,7 +141,7 @@ if "materia_nome" not in st.session_state:
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
 
-# ---------- EXTRAIR TEXTO (Lógica do Código 1) ----------
+# ---------- LER PDF ----------
 def extract_pdf_text(pdf_path):
     try:
         reader = PdfReader(str(pdf_path))
@@ -180,28 +173,87 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ---------- TOPO FIXO (Layout do Código 2 com dados do Código 1) ----------
+# ---------- TOPO FIXO (Layout do Código 2) ----------
 st.markdown(f"""
 <div class="top-fixed">
     <div class="main-title">
         📚 Selecione uma matéria e faça perguntas sobre o conteúdo!
     </div>
-
     <div class="materia-info">
-        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome if st.session_state.materia_nome else "Nenhuma"} • 
+        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
         <small>{st.session_state.caracteres_count:,} caracteres</small>
     </div>
-
     <div class="chat-title">
         💬 Chat de Dúvidas
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- LOOP DE MENSAGENS (Lógica do Código 1) ----------
+# ---------- FORMATAR RESPOSTA (Lógica do Código 1) ----------
+def formatar_resposta(texto):
+    """Formata a resposta para diferentes tipos de questão"""
+    
+    # Remover tags HTML indesejadas
+    texto = texto.replace('</div>', '')
+    texto = texto.replace('<div>', '')
+    texto = texto.replace('<br>', '\n')
+    texto = re.sub(r'<[^>]+>', '', texto)
+    texto = texto.strip()
+    
+    # QUESTÕES DE MÚLTIPLA ESCOLHA
+    padroes_correta = [
+        (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*\*\*Correta\*\*', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*CORRETA:', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*✅\s*CORRETA', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*\(Correta\)', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*\(CORRETA\)', r'<span class="correct-answer">\1) \2</span>'),
+        (r'✅\s*([A-E])\)\s*([^\n]*)', r'<span class="correct-answer">✅ \1) \2</span>'),
+    ]
+    
+    for padrao, substituicao in padroes_correta:
+        texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
+    
+    # QUESTÕES VERDADEIRO/FALSO
+    padroes_vf = [
+        (r'(VERDADEIRO|V)\s*[-:]?\s*(CORRETO|CERTO|CORRETA)?\s*\*\*', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
+        (r'(FALSO|F)\s*[-:]?\s*(INCORRETO|ERRADO|ERRADA)?\s*\*\*', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
+        (r'✅\s*(VERDADEIRO|V)', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
+        (r'❌\s*(FALSO|F)', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
+    ]
+    
+    for padrao, substituicao in padroes_vf:
+        texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
+    
+    # ENUMERAÇÃO
+    texto = re.sub(
+        r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*',
+        r'\1<span class="correct-answer">✅ \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
+    
+    # QUESTÕES ABERTAS
+    texto = re.sub(
+        r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*',
+        r'<span class="correct-answer">✅ Resposta: \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
+    
+    # FORMATAÇÃO GERAL
+    texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
+    texto = re.sub(r'(\n|^)(V|v)\)\s*', r'\1<strong>V)</strong> ', texto)
+    texto = re.sub(r'(\n|^)(F|f)\)\s*', r'\1<strong>F)</strong> ', texto)
+    
+    texto = texto.replace('**', '')
+    texto = texto.replace('\n', '<br>')
+    
+    return texto
+
+# ---------- EXIBIR HISTÓRICO ----------
 for message in st.session_state.messages:
     if message["role"] == "user":
-        # Limpeza da pergunta do usuário
         pergunta_limpa = message["content"]
         pergunta_limpa = pergunta_limpa.replace('</div>', '')
         pergunta_limpa = pergunta_limpa.replace('<div>', '')
@@ -222,76 +274,13 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# ---------- FUNÇÃO DE FORMATAÇÃO (Lógica do Código 1) ----------
-def formatar_resposta(texto):
-    """Formata a resposta para diferentes tipos de questão"""
-    
-    # Remover tags HTML indesejadas
-    texto = texto.replace('</div>', '')
-    texto = texto.replace('<div>', '')
-    texto = texto.replace('<br>', '\n')
-    texto = re.sub(r'<[^>]+>', '', texto)
-    texto = texto.strip()
-    
-    # QUESTÕES DE MÚLTIPLA ESCOLHA (A, B, C, D, E)
-    padroes_correta = [
-        (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*\*\*Correta\*\*', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*CORRETA:', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*✅\s*CORRETA', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*\(Correta\)', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*\(CORRETA\)', r'<span class="correct-answer">\1) \2</span>'),
-        (r'✅\s*([A-E])\)\s*([^\n]*)', r'<span class="correct-answer">✅ \1) \2</span>'),
-    ]
-    
-    for padrao, substituicao in padroes_correta:
-        texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
-    
-    # QUESTÕES VERDADEIRO/FALSO (V/F)
-    padroes_vf = [
-        (r'(VERDADEIRO|V)\s*[-:]?\s*(CORRETO|CERTO|CORRETA)?\s*\*\*', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
-        (r'(FALSO|F)\s*[-:]?\s*(INCORRETO|ERRADO|ERRADA)?\s*\*\*', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
-        (r'✅\s*(VERDADEIRO|V)', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
-        (r'❌\s*(FALSO|F)', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
-    ]
-    
-    for padrao, substituicao in padroes_vf:
-        texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
-    
-    # ENUMERAÇÃO/NUMERAÇÃO (1, 2, 3...)
-    texto = re.sub(
-        r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*',
-        r'\1<span class="correct-answer">✅ \2</span>',
-        texto,
-        flags=re.IGNORECASE
-    )
-    
-    # QUESTÕES ABERTAS/DISCURSIVAS
-    texto = re.sub(
-        r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*',
-        r'<span class="correct-answer">✅ Resposta: \2</span>',
-        texto,
-        flags=re.IGNORECASE
-    )
-    
-    # FORMATAÇÃO GERAL
-    texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
-    texto = re.sub(r'(\n|^)(V|v)\)\s*', r'\1<strong>V)</strong> ', texto)
-    texto = re.sub(r'(\n|^)(F|f)\)\s*', r'\1<strong>F)</strong> ', texto)
-    
-    texto = texto.replace('**', '')
-    texto = texto.replace('\n', '<br>')
-    
-    return texto
-
-# ---------- INPUT E API (Lógica do Código 1) ----------
+# ---------- INPUT E PROCESSAMENTO ----------
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # Limpar pergunta antes de exibir
         pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
         pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
         
@@ -305,7 +294,6 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
             try:
                 texto_limitado = st.session_state.pdf_content[:100000]
                 
-                # Prompt Atualizado do Código 1
                 full_prompt = f"""
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
@@ -355,7 +343,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# ---------- BOTÃO LIMPAR (Lógica do Código 1) ----------
+# ---------- BOTÃO LIMPAR ----------
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
