@@ -4,14 +4,8 @@ from pypdf import PdfReader
 from pathlib import Path
 import re
 
-# Configuração da página
-st.set_page_config(
-    page_title="Chat com PDF",
-    page_icon="📚",
-    layout="wide"
-)
+st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# CSS Personalizado
 st.markdown("""
 <style>
     .correct-answer {
@@ -49,18 +43,12 @@ st.markdown("""
         margin: 10px 0;
     }
     .stSelectbox label { font-weight: 600; }
-    .main-title {
-        font-size: 1.5rem !important;
-        font-weight: 600;
-        margin-bottom: 1rem;
-    }
+    .main-title { font-size: 1.5rem !important; font-weight: 600; margin-bottom: 1rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# Título principal
 st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>', unsafe_allow_html=True)
 
-# ==================== BARRA LATERAL ====================
 with st.sidebar:
     st.header("📖 Selecionar Matéria")
     
@@ -85,18 +73,9 @@ with st.sidebar:
         for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
             nome_original = pdf_path.name
             nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-            pdf_options[nome_exibicao] = {
-                'path': pdf_path,
-                'original_name': nome_original
-            }
+            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
         
-        selected_materia = st.selectbox(
-            "Escolha a matéria:",
-            options=list(pdf_options.keys()),
-            index=0,
-            help="Selecione o PDF que será usado como fonte para as respostas"
-        )
-        
+        selected_materia = st.selectbox("Escolha a matéria:", options=list(pdf_options.keys()), index=0)
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
     
@@ -112,7 +91,6 @@ with st.sidebar:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
 
-# ==================== ESTADO DA SESSÃO ====================
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -124,7 +102,6 @@ if "materia_nome" not in st.session_state:
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
 
-# ==================== FUNÇÃO PARA EXTRAIR TEXTO ====================
 def extract_pdf_text(pdf_path):
     try:
         reader = PdfReader(str(pdf_path))
@@ -142,7 +119,6 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
-# ==================== CARREGAR PDF QUANDO SELECIONADO ====================
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -157,7 +133,6 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ==================== MOSTRAR MATÉRIA SELECIONADA ====================
 if st.session_state.pdf_content:
     st.markdown(f"""
     <div class="materia-info">
@@ -167,8 +142,6 @@ if st.session_state.pdf_content:
     """, unsafe_allow_html=True)
 
 st.divider()
-
-# ==================== ÁREA DO CHAT ====================
 st.header("💬 Chat de Dúvidas")
 
 for message in st.session_state.messages:
@@ -186,7 +159,6 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# ==================== FUNÇÃO PARA FORMATAR RESPOSTA ====================
 def formatar_resposta(texto):
     padroes_correta = [
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
@@ -212,7 +184,6 @@ def formatar_resposta(texto):
     texto = texto.replace('\n', '<br>')
     return texto
 
-# ==================== INPUT DO USUÁRIO ====================
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -229,14 +200,11 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
                 full_prompt = f"""
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
-REGRAS OBRIGATÓRIAS:
+REGRAS:
 1. Responda APENAS com base no conteúdo do material fornecido
-2. Se houver questões com alternativas (A, B, C, D, E), você DEVE indicar qual está correta
-3. Para indicar a alternativa correta, use EXATAMENTE este formato:
-   - Escreva a alternativa completa seguida de **CORRETA**
-   - Exemplo: "A) Esta é a resposta **CORRETA**"
-4. Se não encontrar a informação, diga: "Não encontrei essa informação no material"
-5. Seja claro e objetivo
+2. Se houver alternativas (A, B, C, D, E), indique qual está **CORRETA**
+3. Use o formato: "A) Texto **CORRETA**"
+4. Se não encontrar, diga: "Não encontrei essa informação no material"
 
 MATERIAL:
 {st.session_state.pdf_content[:400000]}
@@ -244,10 +212,10 @@ MATERIAL:
 PERGUNTA:
 {prompt}
 
-RESPOSTA (use **CORRETA** para destacar a alternativa certa):
+RESPOSTA:
 """
-                # ← ← ← MODELO ALTERADO PARA gemini-pro ← ← ←
-                model = genai.GenerativeModel('gemini-pro')
+                # ← ← ← MODELO COM PREFIXO 'models/' ← ← ←
+                model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
                 response = model.generate_content(full_prompt)
                 resposta = response.text
                 
@@ -264,7 +232,6 @@ RESPOSTA (use **CORRETA** para destacar a alternativa certa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# ==================== BOTÃO PARA LIMPAR CHAT ====================
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
