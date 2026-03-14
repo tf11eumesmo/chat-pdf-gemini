@@ -146,9 +146,17 @@ st.header("💬 Chat de Dúvidas")
 
 for message in st.session_state.messages:
     if message["role"] == "user":
+        # ← ← ← LIMPAR PERGUNTA DO USUÁRIO (remover </div> e tags HTML) ← ← ←
+        pergunta_limpa = message["content"]
+        pergunta_limpa = pergunta_limpa.replace('</div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)  # Remove todas as tags HTML
+        pergunta_limpa = pergunta_limpa.strip()
+        
         st.markdown(f"""
         <div class="user-message">
-            <strong>👤 Você:</strong><br>{message["content"]}
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -160,11 +168,13 @@ for message in st.session_state.messages:
         """, unsafe_allow_html=True)
 
 def formatar_resposta(texto):
-    """Formata a resposta para diferentes tipos de questões"""
+    """Formata a resposta para diferentes tipos de questão"""
     
     # Remover tags HTML indesejadas
     texto = texto.replace('</div>', '')
     texto = texto.replace('<div>', '')
+    texto = texto.replace('<br>', '\n')
+    texto = re.sub(r'<[^>]+>', '', texto)  # Remove todas as tags HTML
     texto = texto.strip()
     
     # QUESTÕES DE MÚLTIPLA ESCOLHA (A, B, C, D, E)
@@ -223,9 +233,14 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        # ← ← ← LIMPAR PERGUNTA ANTES DE EXIBIR ← ← ←
+        pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
+        
         st.markdown(f"""
         <div class="user-message">
-            <strong>👤 Você:</strong><br>{prompt}
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
         </div>
         """, unsafe_allow_html=True)
         
@@ -233,23 +248,24 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
             try:
                 texto_limitado = st.session_state.pdf_content[:100000]
                 
+                # ← ← ← PROMPT ATUALIZADO: questão completa, SEM justificativa ← ← ←
                 full_prompt = f"""
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
-REGRAS OBRIGATÓRIAS:
+INSTRUÇÕES OBRIGATÓRIAS:
 1. Responda APENAS com base no conteúdo do material fornecido abaixo
-2. Se houver questões com alternativas (A, B, C, D, E), você DEVE indicar qual está correta
-3. Para indicar a alternativa correta, use EXATAMENTE este formato:
-   - Escreva a alternativa completa seguida de **CORRETA**
-   - Exemplo: "D) Esta é a resposta **CORRETA**"
-4. Para questões Verdadeiro/Falso, use:
-   - "✅ VERDADEIRO **CORRETO**" ou "❌ FALSO **INCORRETO**"
-5. Para enumeração, use:
-   - "1. Item **CORRETO**"
-6. Para questões abertas, use:
-   - "Resposta: **resposta correta**"
-7. Se não encontrar a informação, diga: "Não encontrei essa informação no material fornecido"
-8. Seja claro, didático e objetivo
+2. RETORNE A QUESTÃO COMPLETA (pergunta + TODAS as alternativas)
+3. Indique qual alternativa está correta usando **CORRETA** após a alternativa
+4. NÃO adicione justificativas, explicações extras ou comentários
+5. Formato EXATO para múltipla escolha:
+   - Retorne a pergunta completa
+   - Retorne TODAS as alternativas (A, B, C, D, E)
+   - Após a correta, escreva: " **CORRETA**"
+   - Exemplo: "D) 800 metros, devido ao risco... **CORRETA**"
+6. Para V/F: "✅ VERDADEIRO **CORRETO**" ou "❌ FALSO **INCORRETO**"
+7. Para enumeração: "1. Item **CORRETO**"
+8. Para questões abertas: "Resposta: **resposta correta**"
+9. Se não encontrar: "Não encontrei essa informação no material"
 
 MATERIAL DE ESTUDO:
 {texto_limitado}
@@ -257,7 +273,7 @@ MATERIAL DE ESTUDO:
 PERGUNTA DO ALUNO:
 {prompt}
 
-RESPOSTA (use os formatos acima para destacar):
+RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
 """
                 
                 response = co.chat(
