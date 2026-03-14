@@ -51,14 +51,25 @@ st.markdown("""
     .stSelectbox label {
         font-weight: 600;
     }
-    /* Esconder menu padrão do Streamlit para visual mais limpo */
+    /* Título menor */
+    .main-title {
+        font-size: 1.5rem !important;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    /* Esconder elementos padrão do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    .stAppHeader {visibility: hidden;}
+    header {visibility: hidden;}
+    /* Esconder stHeaderActionElements (três pontinhos) */
+    .stApp > div[data-testid="stToolbar"] {visibility: hidden;}
+    section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# Título principal (substitui o antigo + subtítulo)
-st.title("Selecione uma matéria e faça perguntas sobre o conteúdo!")
+# Título principal com ícone e tamanho reduzido
+st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>', unsafe_allow_html=True)
 
 # ==================== BARRA LATERAL ====================
 with st.sidebar:
@@ -225,7 +236,7 @@ def formatar_resposta(texto):
     return texto
 
 # ==================== INPUT DO USUÁRIO ====================
-if prompt := st.chat_input("Digite sua pergunta sobre a matéria..."):
+if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
@@ -290,11 +301,3 @@ with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-
-# ==================== RODAPÉ ====================
-st.divider()
-st.markdown("""
-<div style='text-align: center; color: gray; padding: 10px;'>
-    <small>📚 Chat com PDF • Powered by Google Gemini</small>
-</div>
-""", unsafe_allow_html=True)
