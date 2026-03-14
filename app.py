@@ -10,7 +10,27 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 st.markdown("""
 <style>
 
+/* OCULTAR CABEÇALHO PADRÃO E BOTÃO DE MENU LATERAL */
 header {visibility: hidden;}
+button[data-testid="baseButton-header"] {visibility: hidden;}
+
+/* GARANTIR QUE A SIDEBAR FIQUE FIXA E SEM BOTÃO DE FECHAR */
+section[data-testid="stSidebar"] {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 300px !important; /* Largura fixa da sidebar */
+    z-index: 1000;
+    background-color: #f8f9fa;
+    border-right: 1px solid #ddd;
+}
+
+/* AJUSTAR O CONTEÚDO PRINCIPAL PARA NÃO FICAR EMBAIXO DA SIDEBAR */
+.main > div:first-child {
+    margin-left: 300px !important;
+    width: calc(100% - 300px) !important;
+}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
 hr {
@@ -22,11 +42,10 @@ hr {
 }
 
 /* TOPO FIXO */
-
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px;
+    left: 300px; /* Mesma largura da sidebar */
     right: 0;
     background: white;
     z-index: 999;
@@ -56,7 +75,6 @@ hr {
 }
 
 /* CHAT */
-
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -117,8 +135,6 @@ with st.sidebar:
         selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0)
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
-    
-    # st.divider() foi removido implicitamente pelo CSS, mas podemos manter a lógica da API Key abaixo
     
     if "COHERE_API_KEY" not in st.secrets:
         st.error("❌ COHERE_API_KEY não configurada")
@@ -191,8 +207,6 @@ st.markdown(f"""
 
 </div>
 """, unsafe_allow_html=True)
-
-# st.divider() removido aqui também pois o CSS esconde todas as linhas
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
