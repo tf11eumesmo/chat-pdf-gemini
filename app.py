@@ -6,9 +6,60 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
+# CSS Personalizado com cabeçalho fixo
 st.markdown("""
 <style>
-    /* CSS Personalizado */
+    /* ========== CABEÇALHO FIXO NO TOPO ========== */
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background-color: #ffffff;
+        z-index: 9999;
+        padding: 15px 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .main-title {
+        font-size: 1.3rem !important;
+        font-weight: 600;
+        margin: 0 0 10px 0;
+        color: #1a1a1a;
+    }
+    
+    .materia-info {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 8px 12px;
+        border-radius: 5px;
+        margin: 0;
+        color: #155724;
+        font-size: 0.9rem;
+    }
+    .materia-info strong { color: #155724; }
+    
+    /* Espaço para compensar o cabeçalho fixo */
+    .header-spacer {
+        height: 120px;
+    }
+    
+    /* ========== CHAT COM SCROLL ========== */
+    .chat-container {
+        max-height: calc(100vh - 250px);
+        overflow-y: auto;
+        padding-bottom: 20px;
+    }
+    
+    .chat-section-title {
+        font-size: 1.1rem !important;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin: 10px 0 15px 0;
+    }
+    
+    /* ========== MENSAGENS DO CHAT ========== */
     .correct-answer {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
@@ -20,15 +71,7 @@ st.markdown("""
         display: block;
     }
     .correct-answer::before { content: "✅ "; }
-    .materia-info {
-        background-color: #d4edda;
-        border-left: 4px solid #28a745;
-        padding: 12px 15px;
-        border-radius: 5px;
-        margin: 10px 0;
-        color: #155724;
-    }
-    .materia-info strong { color: #155724; }
+    
     .user-message {
         background-color: #e3f2fd;
         border-left: 4px solid #2196f3;
@@ -36,6 +79,7 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
+    
     .assistant-message {
         background-color: #f5f5f5;
         border-left: 4px solid #4caf50;
@@ -43,35 +87,31 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
+    
+    /* ========== SIDEBAR ========== */
     .stSelectbox label { font-weight: 600; }
     
-    /* Ajuste de fonte do título do chat */
-    .chat-header-title {
-        font-size: 1.1rem !important; 
-        font-weight: 600; 
-        margin-bottom: 0.5rem;
-        color: #333;
+    /* ========== INPUT DO CHAT FIXO NA BASE ========== */
+    .stChatInputContainer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: #ffffff;
+        padding: 15px 20px;
+        z-index: 9999;
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
     }
     
-    .main-title { 
-        font-size: 1.5rem !important; 
-        font-weight: 600; 
-        margin-bottom: 0.5rem; 
-    }
-    
-    /* Container fixo para o topo */
-    .fixed-header-container {
-        position: sticky;
-        top: 0;
-        background-color: white;
-        z-index: 100;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #eee;
-        margin-bottom: 20px;
-    }
+    /* Esconder elementos padrão do Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stAppHeader {visibility: hidden;}
+    header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
+# ==================== BARRA LATERAL ====================
 with st.sidebar:
     st.header("📖 Selecionar Matéria")
     
@@ -114,6 +154,7 @@ with st.sidebar:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
 
+# ==================== ESTADO DA SESSÃO ====================
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -125,6 +166,7 @@ if "materia_nome" not in st.session_state:
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
 
+# ==================== FUNÇÃO PARA EXTRAIR TEXTO ====================
 def extract_pdf_text(pdf_path):
     try:
         reader = PdfReader(str(pdf_path))
@@ -142,6 +184,7 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
+# ==================== CARREGAR PDF QUANDO SELECIONADO ====================
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -156,37 +199,30 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# --- ÁREA FIXA NO TOPO (FORA DO SCROLL DO CHAT) ---
-st.markdown('<div class="fixed-header-container">', unsafe_allow_html=True)
+# ==================== CABEÇALHO FIXO NO TOPO ====================
+st.markdown('<div class="header-spacer"></div>', unsafe_allow_html=True)
 
-# 1. Título Principal
-st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>', unsafe_allow_html=True)
-
-# 2. Info da Matéria
-if st.session_state.pdf_content:
-    st.markdown(f"""
+st.markdown(f"""
+<div class="fixed-header">
+    <h1 class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</h1>
     <div class="materia-info">
-        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
-        <small>{st.session_state.caracteres_count:,} caracteres</small>
+        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome if st.session_state.materia_nome else 'Nenhuma selecionada'} • 
+        <small>{st.session_state.caracteres_count:, if st.session_state.caracteres_count else 0} caracteres</small>
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
-# 3. Título do Chat (Fonte Diminuída)
-st.markdown('<p class="chat-header-title">💬 Chat de Dúvidas</p>', unsafe_allow_html=True)
-st.divider()
+# ==================== ÁREA DO CHAT (COM SCROLL) ====================
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+st.markdown('<h2 class="chat-section-title">💬 Chat de Dúvidas</h2>', unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True)
-# --- FIM DA ÁREA FIXA ---
-
-# Renderização do Histórico do Chat
 for message in st.session_state.messages:
     if message["role"] == "user":
-        # ← ← ← LIMPAR PERGUNTA DO USUÁRIO (remover </div> e tags HTML) ← ← ←
         pergunta_limpa = message["content"]
         pergunta_limpa = pergunta_limpa.replace('</div>', '')
         pergunta_limpa = pergunta_limpa.replace('<div>', '')
         pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)  # Remove todas as tags HTML
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
         pergunta_limpa = pergunta_limpa.strip()
         
         st.markdown(f"""
@@ -202,14 +238,16 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ==================== FUNÇÃO PARA FORMATAR RESPOSTA ====================
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
     
-    # Remover tags HTML indesejadas
     texto = texto.replace('</div>', '')
     texto = texto.replace('<div>', '')
     texto = texto.replace('<br>', '\n')
-    texto = re.sub(r'<[^>]+>', '', texto)  # Remove todas as tags HTML
+    texto = re.sub(r'<[^>]+>', '', texto)
     texto = texto.strip()
     
     # QUESTÕES DE MÚLTIPLA ESCOLHA (A, B, C, D, E)
@@ -263,13 +301,13 @@ def formatar_resposta(texto):
     
     return texto
 
+# ==================== INPUT DO USUÁRIO ====================
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # ← ← ← LIMPAR PERGUNTA ANTES DE EXIBIR ← ← ←
         pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
         pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
         
@@ -283,7 +321,6 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
             try:
                 texto_limitado = st.session_state.pdf_content[:100000]
                 
-                # ← ← ← PROMPT ATUALIZADO: questão completa, SEM justificativa ← ← ←
                 full_prompt = f"""
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
@@ -333,6 +370,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
+# ==================== BOTÃO PARA LIMPAR CHAT ====================
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
