@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai  # ← API antiga (funciona!)
+import google.generativeai as genai
 from pypdf import PdfReader
 from pathlib import Path
 import re
@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS para remover elementos padrão + estilização
+# CSS Personalizado (apenas estilização importante)
 st.markdown("""
 <style>
     .correct-answer {
@@ -24,7 +24,9 @@ st.markdown("""
         color: #155724;
         display: block;
     }
-    .correct-answer::before { content: "✅ "; }
+    .correct-answer::before {
+        content: "✅ ";
+    }
     .materia-info {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
@@ -33,7 +35,9 @@ st.markdown("""
         margin: 10px 0;
         color: #155724;
     }
-    .materia-info strong { color: #155724; }
+    .materia-info strong {
+        color: #155724;
+    }
     .user-message {
         background-color: #e3f2fd;
         border-left: 4px solid #2196f3;
@@ -48,22 +52,14 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
-    .stSelectbox label { font-weight: 600; }
+    .stSelectbox label {
+        font-weight: 600;
+    }
     .main-title {
         font-size: 1.5rem !important;
         font-weight: 600;
         margin-bottom: 1rem;
     }
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stAppHeader {visibility: hidden;}
-    header {visibility: hidden;}
-    .stApp > div[data-testid="stToolbar"] {visibility: hidden;}
-    section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden;}
-    footer[data-testid="stFooter"], .stApp > footer, [data-testid="stFooter"] {display: none !important;}
-    button[title="Fullscreen"], button[aria-label="Fullscreen"] {display: none !important;}
-    .stStatusWidget {display: none !important;}
-    .stApp { padding-bottom: 0 !important; max-width: 100% !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -72,20 +68,7 @@ st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas
 
 # ==================== BARRA LATERAL ====================
 with st.sidebar:
-    # Configurar API Key (API antiga)
-    if "GEMINI_API_KEY" not in st.secrets:
-        st.error("❌ API Key não configurada")
-        st.stop()
-    
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    except Exception as e:
-        st.error(f"❌ Erro na API: {e}")
-        st.stop()
-    
-    st.divider()
-    
-    # Seleção de Matéria
+    # ✅ "Selecionar Matéria" NO TOPO da sidebar
     st.header("📖 Selecionar Matéria")
     
     pdf_folder = Path("pdfs")
@@ -123,6 +106,20 @@ with st.sidebar:
         
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
+    
+    # Divider após seleção de matéria
+    st.divider()
+    
+    # Configurar API Key (apenas erro se falhar)
+    if "GEMINI_API_KEY" not in st.secrets:
+        st.error("❌ API Key não configurada")
+        st.stop()
+    
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    except Exception as e:
+        st.error(f"❌ Erro na API: {e}")
+        st.stop()
 
 # ==================== ESTADO DA SESSÃO ====================
 if "messages" not in st.session_state:
@@ -258,7 +255,6 @@ PERGUNTA:
 
 RESPOSTA (use **CORRETA** para destacar a alternativa certa):
 """
-                # ← ← ← CHAMADA À API ANTIGA (FUNCIONA!) ← ← ←
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 response = model.generate_content(full_prompt)
                 resposta = response.text
