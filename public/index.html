@@ -5,12 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chat com PDF</title>
   <style>
+    /* Reset básico */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; }
-    .iframe-container { position: relative; width: 100vw; height: 100vh; }
-    #streamlit-frame { width: 100%; height: 100%; border: none; display: block; }
+    html, body { 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      background: #fff; 
+    }
     
-    /* Overlay que bloqueia o botão "Gerenciar aplicativo" */
+    /* Container do iframe */
+    .iframe-container { 
+      position: relative; 
+      width: 100vw; 
+      height: 100vh; 
+    }
+    
+    /* Iframe do Streamlit */
+    #streamlit-frame { 
+      width: 100%; 
+      height: 100%; 
+      border: none; 
+      display: block; 
+    }
+    
+    /* ========== OVERLAYS PARA BLOQUEAR ELEMENTOS ========== */
+    
+    /* 1. Botão "Gerenciar aplicativo" (canto superior direito) */
     .button-blocker {
       position: absolute;
       top: 8px;
@@ -23,55 +45,104 @@
       border-radius: 6px;
     }
     
-    /* Loader minimalista (sem texto) */
+    /* 2. "Built with Streamlit 🎈" (canto inferior esquerdo) */
+    .footer-blocker {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 250px;
+      height: 50px;
+      background: #ffffff;
+      z-index: 9999;
+      pointer-events: none;
+    }
+    
+    /* 3. "Fullscreen" (canto inferior direito) */
+    .fullscreen-blocker {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 150px;
+      height: 50px;
+      background: #ffffff;
+      z-index: 9999;
+      pointer-events: none;
+    }
+    
+    /* ========== LOADER ========== */
     .loader {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: #fff; display: flex; align-items: center; justify-content: center;
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%;
+      background: #fff; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
       z-index: 10000;
     }
     .loader.hidden { display: none; }
     .spinner {
-      width: 32px; height: 32px; border: 3px solid #e0e0e0;
-      border-top-color: #28a745; border-radius: 50%;
+      width: 32px; 
+      height: 32px; 
+      border: 3px solid #e0e0e0;
+      border-top-color: #28a745; 
+      border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin { 
+      to { transform: rotate(360deg); } 
+    }
     
-    /* Mensagem de erro minimalista */
+    /* ========== MENSAGEM DE ERRO ========== */
     .error-msg {
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: #ffebee; color: #c62828; padding: 12px 20px;
-      border-radius: 6px; border-left: 4px solid #c62828;
-      max-width: 350px; text-align: center; display: none; z-index: 10001;
+      position: fixed; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%);
+      background: #ffebee; 
+      color: #c62828; 
+      padding: 12px 20px;
+      border-radius: 6px; 
+      border-left: 4px solid #c62828;
+      max-width: 350px; 
+      text-align: center; 
+      display: none; 
+      z-index: 10001;
       font-size: 13px;
     }
     .error-msg.show { display: block; }
   </style>
 </head>
 <body>
-  <!-- Loader minimalista (apenas spinner, sem texto) -->
+  <!-- Loader (spinner sem texto) -->
   <div class="loader" id="loader">
     <div class="spinner"></div>
   </div>
   
-  <!-- Mensagem de erro simplificada -->
+  <!-- Mensagem de erro -->
   <div class="error-msg" id="error-msg">
     Não foi possível carregar.<br><small>Recarregue a página.</small>
   </div>
   
-  <!-- Container com iframe + overlay -->
+  <!-- Container principal -->
   <div class="iframe-container">
+    <!-- Iframe do Streamlit -->
     <iframe 
       id="streamlit-frame" 
-      src="https://iadobizurado.streamlit.app?embed=true&embed_options=disable_scrolling&embed_options=show_toolbar" 
+      src="https://iadobizurado.streamlit.app?embed=true&embed_options=disable_scrolling" 
       title="Chat com PDF"
       loading="lazy"
-      allow="clipboard-read; clipboard-write"
     ></iframe>
-    <!-- Overlay que bloqueia o botão "Gerenciar aplicativo" -->
-    <div class="button-blocker" title="Área protegida"></div>
+    
+    <!-- Overlays para cobrir elementos indesejados -->
+    <div class="button-blocker"></div>
+    <div class="footer-blocker"></div>
+    <div class="fullscreen-blocker"></div>
   </div>
 
+  <!-- Scripts -->
   <script>
     const iframe = document.getElementById('streamlit-frame');
     const loader = document.getElementById('loader');
@@ -82,7 +153,7 @@
       setTimeout(() => loader.classList.add('hidden'), 500);
     });
     
-    // Timeout para erro
+    // Timeout para erro (12 segundos)
     setTimeout(() => {
       if (!loader.classList.contains('hidden')) {
         loader.classList.add('hidden');
@@ -95,55 +166,6 @@
       loader.classList.add('hidden');
       errorMsg.classList.add('show');
     });
-    
-    // Injeta CSS/JS no iframe para remover elementos do Streamlit
-    function cleanStreamlitUI() {
-      try {
-        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-        
-        // CSS para esconder elementos indesejados
-        const style = iframeDoc.createElement('style');
-        style.textContent = `
-          /* Remove "Built with Streamlit" footer */
-          footer[data-testid="stFooter"], 
-          .stApp > footer,
-          [data-testid="stFooter"] { display: none !important; }
-          
-          /* Remove botão Fullscreen */
-          button[title="Fullscreen"],
-          button[title="Expandir"],
-          [data-testid="stToolbar"] button[aria-label*="fullscreen"],
-          .stApp > div[data-testid="stToolbar"] button:last-child { display: none !important; }
-          
-          /* Remove barra de status inferior */
-          .stStatusWidget { display: none !important; }
-          
-          /* Ajusta padding para ocupar tela toda */
-          .stApp { padding-bottom: 0 !important; }
-        `;
-        iframeDoc.head.appendChild(style);
-        
-        // Remove elementos que já existem no DOM
-        function removeElements() {
-          // Footer "Built with Streamlit"
-          document.querySelectorAll('footer[data-testid="stFooter"], .stApp > footer, [data-testid="stFooter"]').forEach(el => el.remove());
-          // Botão Fullscreen
-          document.querySelectorAll('button[title="Fullscreen"], button[title="Expandir"]').forEach(el => el.remove());
-        }
-        removeElements();
-        
-        // Observer para remover se reaparecerem
-        const observer = new MutationObserver(removeElements);
-        observer.observe(iframeDoc.body, { childList: true, subtree: true });
-        
-        console.log('✅ UI do Streamlit limpa');
-      } catch (e) {
-        console.log('ℹ️ Limpeza via iframe não permitida (CORS). Overlay CSS ativo.');
-      }
-    }
-    
-    // Executa após iframe carregar
-    iframe.addEventListener('load', cleanStreamlitUI);
   </script>
 </body>
 </html>
