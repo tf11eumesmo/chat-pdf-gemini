@@ -6,22 +6,24 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
+# ---------- CSS ----------
+
 st.markdown("""
 <style>
 
 header {visibility: hidden;}
 
 .block-container {
-    padding-top: 180px;
-    padding-bottom: 120px;
+    padding-top: 170px;
+    padding-bottom: 140px;
 }
 
-/* ---------- TOPO FIXO ---------- */
+/* TOPO FIXO */
 
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 0;
+    left: 300px;
     right: 0;
     background: white;
     z-index: 999;
@@ -30,12 +32,12 @@ header {visibility: hidden;}
 }
 
 .main-title {
-    font-size: 1.4rem;
+    font-size: 1.35rem;
     font-weight: 600;
 }
 
 .chat-title {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     margin-top: 8px;
 }
@@ -49,20 +51,20 @@ header {visibility: hidden;}
     color: #155724;
 }
 
-/* ---------- FOOTER FIXO ---------- */
+/* BOTÃO LIMPAR FIXO */
 
-.bottom-fixed {
+.clear-history-bar {
     position: fixed;
-    bottom: 0;
-    left: 290px;
+    bottom: 70px;
+    left: 300px;
     right: 0;
     background: white;
-    border-top: 1px solid #ddd;
-    padding: 10px 30px;
-    z-index: 999;
+    padding: 10px;
+    border-top: 1px solid #eee;
+    z-index: 998;
 }
 
-/* ---------- CHAT ---------- */
+/* CHAT */
 
 .user-message {
     background-color: #e3f2fd;
@@ -93,7 +95,6 @@ header {visibility: hidden;}
 
 </style>
 """, unsafe_allow_html=True)
-
 
 # ---------- SIDEBAR ----------
 
@@ -135,7 +136,6 @@ with st.sidebar:
 
     co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
 
-
 # ---------- SESSION ----------
 
 if "messages" not in st.session_state:
@@ -149,7 +149,6 @@ if "materia_nome" not in st.session_state:
 
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
-
 
 # ---------- LER PDF ----------
 
@@ -172,7 +171,6 @@ def extract_pdf_text(pdf_path):
     except:
         return ""
 
-
 if selected_pdf:
 
     texto = extract_pdf_text(selected_pdf)
@@ -180,7 +178,6 @@ if selected_pdf:
     st.session_state.pdf_content = texto
     st.session_state.materia_nome = selected_materia
     st.session_state.caracteres_count = len(texto)
-
 
 # ---------- TOPO FIXO ----------
 
@@ -203,7 +200,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-
 # ---------- FORMATAR RESPOSTA ----------
 
 def formatar_resposta(texto):
@@ -221,7 +217,6 @@ def formatar_resposta(texto):
     texto = texto.replace("\n", "<br>")
 
     return texto
-
 
 # ---------- CHAT ----------
 
@@ -246,7 +241,6 @@ for message in st.session_state.messages:
         <strong>🤖 Assistente:</strong><br>{resposta}
         </div>
         """, unsafe_allow_html=True)
-
 
 # ---------- INPUT ----------
 
@@ -287,10 +281,9 @@ Retorne a questão completa e marque a correta com **CORRETA**
 
         st.rerun()
 
+# ---------- LIMPAR HISTÓRICO FIXO ----------
 
-# ---------- FOOTER FIXO ----------
-
-st.markdown('<div class="bottom-fixed">', unsafe_allow_html=True)
+st.markdown('<div class="clear-history-bar">', unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns([3,2,3])
 
