@@ -1,11 +1,3 @@
-Aqui está o **Código 1** completo, mantendo toda a sua lógica original (extração de PDF, formatação complexa de respostas, prompts detalhados e tratamento de erros), mas aplicando **apenas** as alterações de CSS e estrutura HTML do Código 2 para criar o cabeçalho fixo ("Topo Fixo") com o posicionamento solicitado.
-
-As principais mudanças foram:
-1.  Substituição do bloco `<style>` pelo do Código 2 (incluindo `.top-fixed`, `header {visibility: hidden;}`, etc.).
-2.  Remoção dos `st.markdown` soltos no corpo do script que exibiam o título e a matéria.
-3.  Inserção do bloco `div class="top-fixed"` logo após a sidebar e antes do loop do chat, contendo as três linhas de informação solicitadas.
-
-```python
 import streamlit as st
 import cohere
 from pypdf import PdfReader
@@ -355,4 +347,3 @@ with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-```
