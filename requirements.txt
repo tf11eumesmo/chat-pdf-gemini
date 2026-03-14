@@ -1,3 +1,3 @@
-google-generativeai
-pypdf
-streamlit
+streamlit==1.31.0
+google-generativeai==0.3.2
+pypdf==4.0.0
