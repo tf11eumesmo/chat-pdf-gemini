@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat com PDF</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .iframe-container { position: relative; width: 100vw; height: 100vh; }
+    #streamlit-frame { width: 100%; height: 100%; border: none; display: block; }
+    
+    /* Overlay que bloqueia o botão "Gerenciar aplicativo" */
+    .button-blocker {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 220px;
+      height: 45px;
+      background: transparent;
+      z-index: 9999;
+      pointer-events: auto;
+      border-radius: 6px;
+    }
+    
+    .loader {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #fff; display: flex; align-items: center; justify-content: center;
+      z-index: 10000; flex-direction: column; gap: 16px;
+    }
+    .loader.hidden { display: none; }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid #e0e0e0;
+      border-top-color: #28a745; border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text { color: #666; font-size: 14px; }
+    
+    .error-msg {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #ffebee; color: #c62828; padding: 16px 24px;
+      border-radius: 8px; border-left: 4px solid #c62828;
+      max-width: 400px; text-align: center; display: none; z-index: 10001;
+    }
+    .error-msg.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <div class="loader-text">Carregando Chat com PDF...</div>
+  </div>
+  <div class="error-msg" id="error-msg">
+    ⚠️ Não foi possível carregar o app.<br><small>Tente recarregar a página.</small>
+  </div>
+  <div class="iframe-container">
+    <iframe id="streamlit-frame" src="https://iadobizurado.streamlit.app?embed=true&embed_options=show_toolbar" title="Chat com PDF" loading="lazy"></iframe>
+    <div class="button-blocker" title="Área protegida"></div>
+  </div>
+  <script>
+    const iframe = document.getElementById('streamlit-frame');
+    const loader = document.getElementById('loader');
+    const errorMsg = document.getElementById('error-msg');
+    
+    iframe.addEventListener('load', () => {
+      setTimeout(() => loader.classList.add('hidden'), 800);
+    });
+    setTimeout(() => {
+      if (!loader.classList.contains('hidden')) {
+        loader.classList.add('hidden');
+        errorMsg.classList.add('show');
+      }
+    }, 15000);
+    iframe.addEventListener('error', () => {
+      loader.classList.add('hidden');
+      errorMsg.classList.add('show');
+    });
+    // Tenta injetar script no iframe (fallback)
+    function tryInjectScript() {
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        const script = iframeDoc.createElement('script');
+        script.textContent = `
+          (function() {
+            function removeBtn() {
+              const btn = document.querySelector('[data-testid="manage-app-button"]');
+              if (btn) btn.remove();
+            }
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', removeBtn);
+            } else { removeBtn(); }
+            const obs = new MutationObserver(removeBtn);
+            if (document.body) obs.observe(document.body, {childList: true, subtree: true});
+            setTimeout(removeBtn, 2000);
+            setTimeout(removeBtn, 5000);
+          })();
+        `;
+        iframeDoc.head.appendChild(script);
+      } catch (e) {
+        console.log('ℹ️ Overlay CSS ativo (CORS)');
+      }
+    }
+    iframe.addEventListener('load', tryInjectScript);
+  </script>
+</body>
+</html>
