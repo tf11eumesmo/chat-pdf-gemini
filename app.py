@@ -1,3 +1,12 @@
+Aqui está o código completo e corrigido.
+
+**Principais alterações realizadas:**
+1.  **Cabeçalho Fixo (Sticky):** Criei uma classe CSS `.sticky-header` e envolvi o Título, a Info da Matéria e o Título do Chat nela. Isso faz com que eles fiquem "grudados" no topo da tela enquanto você rola a conversa.
+2.  **Fonte Menor:** Adicionei a classe `.chat-title-small` para reduzir o tamanho da fonte do "💬 Chat de Dúvidas".
+3.  **Correção de Erro:** A função `formatar_resposta` estava sendo chamada antes de ser definida no seu código original. Eu a movi para o início do script para evitar erros de execução.
+4.  **Fundo Opaco:** Adicionei `background-color: white` no cabeçalho fixo para que o texto da conversa não apareça "atrás" dele ao rolar a página.
+
+```python
 import streamlit as st
 import cohere
 from pypdf import PdfReader
@@ -6,54 +15,29 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ========== CSS COM CABEÇALHO REALMENTE FIXO ==========
+# CSS ATUALIZADO COM CABEÇALHO FIXO E FONTE MENOR
 st.markdown("""
 <style>
-    /* Cabeçalho fixo no topo - Streamlit compatible */
-    .fixed-header {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        background-color: #ffffff !important;
-        z-index: 999999 !important;
-        padding: 15px 20px !important;
-        border-bottom: 2px solid #28a745 !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    /* CABEÇALHO FIXO */
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        background-color: #ffffff; /* Fundo branco para cobrir o conteúdo ao rolar */
+        z-index: 999;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #e0e0e0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     
-    /* Título principal */
-    .main-title {
-        font-size: 1.3rem !important;
+    /* TÍTULO DO CHAT MENOR */
+    .chat-title-small {
+        font-size: 1.3rem !important; /* Tamanho reduzido */
         font-weight: 600;
-        margin: 0 0 8px 0 !important;
-        color: #1a1a1a !important;
+        margin-bottom: 0.5rem !important;
+        color: #333;
     }
-    
-    /* Matéria Atual (verde) */
-    .materia-info {
-        background-color: #d4edda !important;
-        border-left: 4px solid #28a745 !important;
-        padding: 8px 12px !important;
-        border-radius: 5px !important;
-        margin: 0 !important;
-        color: #155724 !important;
-        font-size: 0.9rem !important;
-        display: inline-block !important;
-    }
-    .materia-info strong {
-        color: #155724 !important;
-    }
-    
-    /* Chat de Dúvidas (fonte reduzida) */
-    .chat-header {
-        font-size: 1.1rem !important;
-        font-weight: 600;
-        color: #333 !important;
-        margin: 10px 0 !important;
-    }
-    
-    /* Respostas corretas */
+
     .correct-answer {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
@@ -65,8 +49,15 @@ st.markdown("""
         display: block;
     }
     .correct-answer::before { content: "✅ "; }
-    
-    /* Mensagens do chat */
+    .materia-info {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 12px 15px;
+        border-radius: 5px;
+        margin: 10px 0;
+        color: #155724;
+    }
+    .materia-info strong { color: #155724; }
     .user-message {
         background-color: #e3f2fd;
         border-left: 4px solid #2196f3;
@@ -81,180 +72,28 @@ st.markdown("""
         border-radius: 10px;
         margin: 10px 0;
     }
-    
-    /* Sidebar */
     .stSelectbox label { font-weight: 600; }
+    .main-title { font-size: 1.5rem !important; font-weight: 600; margin-bottom: 1rem; }
     
-    /* Esconder elementos padrão do Streamlit */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stAppHeader {visibility: hidden;}
-    header {visibility: hidden;}
-    .stApp > div[data-testid="stToolbar"] {visibility: hidden;}
-    section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden;}
-    
-    /* Espaçamento para conteúdo não ficar escondido atrás do header fixo */
-    .main-content {
-        margin-top: 140px !important;
-    }
-    
-    /* Ajustar container principal do Streamlit */
+    /* Ajuste para o container principal não cobrir o header fixo */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 2rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ========== CABEÇALHO FIXO NO TOPO ==========
-st.markdown("""
-<div class="fixed-header">
-    <p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>
-    <div id="materia-atual-container">
-""", unsafe_allow_html=True)
-
-# ========== BARRA LATERAL ==========
-with st.sidebar:
-    st.header("📖 Selecionar Matéria")
-    
-    pdf_folder = Path("pdfs")
-    if not pdf_folder.exists():
-        pdf_folder.mkdir(parents=True, exist_ok=True)
-    
-    pdf_files = []
-    try:
-        for item in pdf_folder.iterdir():
-            if item.is_file() and item.suffix.lower() == ".pdf":
-                pdf_files.append(item)
-    except Exception as e:
-        st.error(f"Erro ao listar PDFs: {e}")
-    
-    if len(pdf_files) == 0:
-        st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
-        selected_pdf = None
-        selected_materia = None
-    else:
-        pdf_options = {}
-        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-            nome_original = pdf_path.name
-            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-        
-        selected_materia = st.selectbox("Escolha a matéria:", options=list(pdf_options.keys()), index=0)
-        selected_pdf_info = pdf_options[selected_materia]
-        selected_pdf = selected_pdf_info['path']
-    
-    st.divider()
-    
-    if "COHERE_API_KEY" not in st.secrets:
-        st.error("❌ COHERE_API_KEY não configurada")
-        st.stop()
-    
-    try:
-        co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
-    except Exception as e:
-        st.error(f"❌ Erro na API: {e}")
-        st.stop()
-
-# ========== ESTADO DA SESSÃO ==========
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "current_pdf" not in st.session_state:
-    st.session_state.current_pdf = None
-if "pdf_content" not in st.session_state:
-    st.session_state.pdf_content = ""
-if "materia_nome" not in st.session_state:
-    st.session_state.materia_nome = ""
-if "caracteres_count" not in st.session_state:
-    st.session_state.caracteres_count = 0
-
-# ========== FUNÇÃO PARA EXTRAIR TEXTO ==========
-def extract_pdf_text(pdf_path):
-    try:
-        reader = PdfReader(str(pdf_path))
-        text = ""
-        for page_num, page in enumerate(reader.pages, 1):
-            try:
-                page_text = page.extract_text()
-                if page_text and page_text.strip():
-                    text += page_text + "\n\n"
-            except Exception:
-                continue
-        if not text.strip():
-            return None, "PDF vazio ou contém apenas imagens"
-        return text, None
-    except Exception as e:
-        return None, f"Erro ao ler PDF: {str(e)}"
-
-# ========== CARREGAR PDF QUANDO SELECIONADO ==========
-if selected_pdf and selected_pdf != st.session_state.current_pdf:
-    texto, erro = extract_pdf_text(selected_pdf)
-    if erro:
-        st.error(f"❌ {erro}")
-        st.session_state.pdf_content = ""
-        st.session_state.current_pdf = None
-        st.session_state.caracteres_count = 0
-    else:
-        st.session_state.pdf_content = texto
-        st.session_state.current_pdf = selected_pdf
-        st.session_state.materia_nome = selected_materia
-        st.session_state.caracteres_count = len(texto)
-        st.session_state.messages = []
-
-# ========== FECHAR HEADER FIXO ==========
-st.markdown('</div></div>', unsafe_allow_html=True)
-
-# ========== CONTEÚDO PRINCIPAL COM MARGEM ==========
-st.markdown('<div class="main-content">', unsafe_allow_html=True)
-
-# ========== MOSTRAR MATÉRIA ATUAL ==========
-if st.session_state.pdf_content:
-    st.markdown(f"""
-    <div class="materia-info">
-        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
-        <small>{st.session_state.caracteres_count:,} caracteres</small>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown('<div class="materia-info" style="background-color: #fff3cd; border-left-color: #ffc107; color: #856404;">⚠️ Selecione uma matéria acima para começar</div>', unsafe_allow_html=True)
-
-# ========== CHAT DE DÚVIDAS (FONTE REDUZIDA) ==========
-st.markdown('<h3 class="chat-header">💬 Chat de Dúvidas</h3>', unsafe_allow_html=True)
-
-st.divider()
-
-# ========== EXIBIR MENSAGENS ==========
-for message in st.session_state.messages:
-    if message["role"] == "user":
-        # Limpar pergunta do usuário (remover tags HTML)
-        pergunta_limpa = message["content"]
-        pergunta_limpa = pergunta_limpa.replace('</div>', '')
-        pergunta_limpa = pergunta_limpa.replace('<div>', '')
-        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
-        pergunta_limpa = pergunta_limpa.strip()
-        
-        st.markdown(f"""
-        <div class="user-message">
-            <strong>👤 Você:</strong><br>{pergunta_limpa}
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        resposta_formatada = formatar_resposta(message["content"])
-        st.markdown(f"""
-        <div class="assistant-message">
-            <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-        </div>
-        """, unsafe_allow_html=True)
-
-# ========== FUNÇÃO PARA FORMATAR RESPOSTA ==========
+# FUNÇÃO DE FORMATAÇÃO (MOVIDA PARA O INÍCIO PARA EVITAR ERROS)
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
+    
+    if not texto:
+        return ""
     
     # Remover tags HTML indesejadas
     texto = texto.replace('</div>', '')
     texto = texto.replace('<div>', '')
     texto = texto.replace('<br>', '\n')
-    texto = re.sub(r'<[^>]+>', '', texto)
+    texto = re.sub(r'<[^>]+>', '', texto)  # Remove todas as tags HTML
     texto = texto.strip()
     
     # QUESTÕES DE MÚLTIPLA ESCOLHA (A, B, C, D, E)
@@ -308,7 +147,138 @@ def formatar_resposta(texto):
     
     return texto
 
-# ========== INPUT DO USUÁRIO ==========
+def extract_pdf_text(pdf_path):
+    try:
+        reader = PdfReader(str(pdf_path))
+        text = ""
+        for page_num, page in enumerate(reader.pages, 1):
+            try:
+                page_text = page.extract_text()
+                if page_text and page_text.strip():
+                    text += page_text + "\n\n"
+            except Exception:
+                continue
+        if not text.strip():
+            return None, "PDF vazio ou contém apenas imagens"
+        return text, None
+    except Exception as e:
+        return None, f"Erro ao ler PDF: {str(e)}"
+
+# --- SIDEBAR ---
+with st.sidebar:
+    st.header("📖 Selecionar Matéria")
+    
+    pdf_folder = Path("pdfs")
+    if not pdf_folder.exists():
+        pdf_folder.mkdir(parents=True, exist_ok=True)
+    
+    pdf_files = []
+    try:
+        for item in pdf_folder.iterdir():
+            if item.is_file() and item.suffix.lower() == ".pdf":
+                pdf_files.append(item)
+    except Exception as e:
+        st.error(f"Erro ao listar PDFs: {e}")
+    
+    if len(pdf_files) == 0:
+        st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
+        selected_pdf = None
+        selected_materia = None
+    else:
+        pdf_options = {}
+        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+            nome_original = pdf_path.name
+            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+            pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
+        
+        selected_materia = st.selectbox("Escolha a matéria:", options=list(pdf_options.keys()), index=0)
+        selected_pdf_info = pdf_options[selected_materia]
+        selected_pdf = selected_pdf_info['path']
+    
+    st.divider()
+    
+    if "COHERE_API_KEY" not in st.secrets:
+        st.error("❌ COHERE_API_KEY não configurada")
+        st.stop()
+    
+    try:
+        co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
+    except Exception as e:
+        st.error(f"❌ Erro na API: {e}")
+        st.stop()
+
+# --- SESSION STATE ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "current_pdf" not in st.session_state:
+    st.session_state.current_pdf = None
+if "pdf_content" not in st.session_state:
+    st.session_state.pdf_content = ""
+if "materia_nome" not in st.session_state:
+    st.session_state.materia_nome = ""
+if "caracteres_count" not in st.session_state:
+    st.session_state.caracteres_count = 0
+
+# --- LÓGICA DE CARREGAMENTO DE PDF ---
+if selected_pdf and selected_pdf != st.session_state.current_pdf:
+    texto, erro = extract_pdf_text(selected_pdf)
+    if erro:
+        st.error(f"❌ {erro}")
+        st.session_state.pdf_content = ""
+        st.session_state.current_pdf = None
+        st.session_state.caracteres_count = 0
+    else:
+        st.session_state.pdf_content = texto
+        st.session_state.current_pdf = selected_pdf
+        st.session_state.materia_nome = selected_materia
+        st.session_state.caracteres_count = len(texto)
+        st.session_state.messages = []
+
+# --- CABEÇALHO FIXO (STICKY) ---
+# Usamos um container com a classe CSS definida acima
+st.markdown('<div class="sticky-header">', unsafe_allow_html=True)
+
+st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>', unsafe_allow_html=True)
+
+if st.session_state.pdf_content:
+    st.markdown(f"""
+    <div class="materia-info">
+        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+        <small>{st.session_state.caracteres_count:,} caracteres</small>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.divider()
+# Título do Chat com fonte menor
+st.markdown('<h2 class="chat-title-small">💬 Chat de Dúvidas</h2>', unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True) # Fim do container sticky
+
+# --- LOOP DE MENSAGENS ---
+for message in st.session_state.messages:
+    if message["role"] == "user":
+        # Limpar pergunta do usuário
+        pergunta_limpa = message["content"]
+        pergunta_limpa = pergunta_limpa.replace('</div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
+        pergunta_limpa = pergunta_limpa.strip()
+        
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        resposta_formatada = formatar_resposta(message["content"])
+        st.markdown(f"""
+        <div class="assistant-message">
+            <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+        </div>
+        """, unsafe_allow_html=True)
+
+# --- INPUT DO USUÁRIO ---
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -378,12 +348,10 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# ========== FECHAR MAIN CONTENT ==========
-st.markdown('</div>', unsafe_allow_html=True)
-
-# ========== BOTÃO PARA LIMPAR CHAT ==========
+# --- RODAPÉ / LIMPAR ---
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
+```
