@@ -10,33 +10,41 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 st.markdown("""
 <style>
 
+/* Esconder menu padrão e footer */
 header {visibility: hidden;}
+footer {visibility: hidden;}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
 hr {
     display: none !important;
 }
 
-/* Ajuste para o container principal não ficar colado no topo devido ao header fixo */
+/* Ajuste do container principal para remover padding excessivo do topo fixo antigo */
 .block-container {
-    padding-top: 20px;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
 }
 
-/* HEADER SUPERIOR PERSONALIZADO */
-.custom-header {
+/* NOVO CABEÇALHO INTEGRADO */
+.header-container {
     background: white;
     border-bottom: 1px solid #ddd;
-    padding: 20px 40px;
+    padding: 20px 0;
     margin-bottom: 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
 .main-title {
-    font-size: 1.5rem;
-    font-weight: 700;
+    font-size: 1.35rem;
+    font-weight: 600;
     color: #333;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
+}
+
+.chat-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #666;
+    margin-top: 5px;
 }
 
 .materia-info {
@@ -46,7 +54,7 @@ hr {
     border-radius: 5px;
     margin-top: 10px;
     color: #155724;
-    display: inline-block;
+    font-size: 0.9rem;
 }
 
 /* CHAT */
@@ -77,12 +85,27 @@ hr {
     display: block;
 }
 
-.stSelectbox label { font-weight: 600; font-size: 1.1rem; }
-.stSelectbox > div { background-color: #f8f9fa; }
+.stSelectbox label { font-weight: 600; }
+.stSelectbox { margin-top: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- LÓGICA DE SELEÇÃO DE PDF (AGORA NO TOPO) ---
+# ---------- SIDEBAR (Apenas Configurações) ----------
+with st.sidebar:
+    st.header("⚙️ Configurações")
+    
+    if "COHERE_API_KEY" not in st.secrets:
+        st.error("❌ COHERE_API_KEY não configurada")
+        st.stop()
+    
+    try:
+        co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
+        st.success("✅ API Conectada")
+    except Exception as e:
+        st.error(f"❌ Erro na API: {e}")
+        st.stop()
+
+# ---------- LÓGICA DE PDFS (Movida para o Main) ----------
 pdf_folder = Path("pdfs")
 if not pdf_folder.exists():
     pdf_folder.mkdir(parents=True, exist_ok=True)
@@ -95,46 +118,7 @@ try:
 except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
-selected_pdf = None
-selected_materia = None
-
-if len(pdf_files) == 0:
-    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'. Por favor, adicione arquivos PDF na pasta 'pdfs' na raiz do projeto.")
-else:
-    pdf_options = {}
-    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-        nome_original = pdf_path.name
-        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-        pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-    
-    # Container para o Header
-    with st.container():
-        st.markdown(f"""
-        <div class="custom-header">
-            <div class="main-title">📚 Chat com PDF - Tire suas dúvidas</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col_sel1, col_sel2 = st.columns([1, 3])
-        with col_sel1:
-            selected_materia = st.selectbox("📖 Escolha a matéria:", options=list(pdf_options.keys()), index=0)
-        
-        selected_pdf_info = pdf_options[selected_materia]
-        selected_pdf = selected_pdf_info['path']
-
-# --- CONFIGURAÇÃO DA API ---
-if selected_pdf:
-    if "COHERE_API_KEY" not in st.secrets:
-        st.error("❌ COHERE_API_KEY não configurada nos secrets do Streamlit")
-        st.stop()
-    
-    try:
-        co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
-    except Exception as e:
-        st.error(f"❌ Erro na API: {e}")
-        st.stop()
-
-# --- ESTADO DA SESSÃO ---
+# Inicialização de Session State
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -145,6 +129,21 @@ if "materia_nome" not in st.session_state:
     st.session_state.materia_nome = ""
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
+
+selected_pdf = None
+selected_materia = None
+
+if len(pdf_files) == 0:
+    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'. Coloque seus arquivos lá.")
+else:
+    pdf_options = {}
+    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+        nome_original = pdf_path.name
+        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+        pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
+    
+    # Selectbox movida para o topo do Main
+    pass 
 
 def extract_pdf_text(pdf_path):
     try:
@@ -163,33 +162,83 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
-# Atualiza o conteúdo se o PDF mudar
-if selected_pdf and selected_pdf != st.session_state.current_pdf:
-    texto, erro = extract_pdf_text(selected_pdf)
-    if erro:
-        st.error(f"❌ {erro}")
-        st.session_state.pdf_content = ""
-        st.session_state.current_pdf = None
-        st.session_state.caracteres_count = 0
-    else:
-        st.session_state.pdf_content = texto
-        st.session_state.current_pdf = selected_pdf
-        st.session_state.materia_nome = selected_materia
-        st.session_state.caracteres_count = len(texto)
-        st.session_state.messages = [] # Limpa chat ao trocar matéria
-        st.rerun()
+# ---------- LAYOUT PRINCIPAL ----------
 
-# --- EXIBIÇÃO DE INFORMAÇÕES DA MATÉRIA ---
-if st.session_state.materia_nome:
+# 1. Cabeçalho com Selectbox e Info
+if len(pdf_files) > 0:
+    # Criação das colunas do cabeçalho
+    col_select, col_info = st.columns([1, 3])
+    
+    with col_select:
+        st.markdown("### 📖 Escolha a matéria:")
+        options_list = list(pdf_options.keys())
+        # Tenta manter a seleção anterior se possível
+        try:
+            default_index = options_list.index(st.session_state.materia_nome) if st.session_state.materia_nome in options_list else 0
+        except:
+            default_index = 0
+            
+        selected_materia = st.selectbox("", options=options_list, index=default_index, label_visibility="collapsed")
+        selected_pdf_info = pdf_options[selected_materia]
+        selected_pdf = selected_pdf_info['path']
+
+    with col_info:
+        st.markdown(f"""
+        <div class="header-container">
+            <div class="main-title">
+                📚 Selecione uma matéria e faça perguntas sobre o conteúdo!
+            </div>
+            <div class="chat-title">
+                💬 Chat de Dúvidas
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Info Box abaixo do título
+        if selected_pdf and selected_pdf != st.session_state.current_pdf:
+            texto, erro = extract_pdf_text(selected_pdf)
+            if erro:
+                st.error(f"❌ {erro}")
+                st.session_state.pdf_content = ""
+                st.session_state.current_pdf = None
+                st.session_state.caracteres_count = 0
+                st.session_state.materia_nome = ""
+            else:
+                st.session_state.pdf_content = texto
+                st.session_state.current_pdf = selected_pdf
+                st.session_state.materia_nome = selected_materia
+                st.session_state.caracteres_count = len(texto)
+                # Opcional: Limpar chat ao trocar de matéria? 
+                # st.session_state.messages = [] 
+        
+        if st.session_state.materia_nome:
+            st.markdown(f"""
+            <div class="materia-info">
+                <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+                <small>{st.session_state.caracteres_count:,} caracteres</small>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="materia-info" style="background-color: #fff3cd; border-left-color: #ffc107; color: #856404;">
+                ⚠️ Selecione uma matéria acima para começar.
+            </div>
+            """, unsafe_allow_html=True)
+
+else:
+    # Caso não tenha PDFs, mostra apenas o título
     st.markdown(f"""
-    <div class="materia-info">
-        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
-        <small>{st.session_state.caracteres_count:,} caracteres processados</small>
+    <div class="header-container">
+        <div class="main-title">
+            📚 Bem-vindo ao Chat com PDF
+        </div>
+        <div class="chat-title">
+            💬 Adicione arquivos na pasta 'pdfs' para começar
+        </div>
     </div>
     """, unsafe_allow_html=True)
-    st.markdown("---") # Separador visual simples
 
-# --- FUNÇÃO DE FORMATAÇÃO ---
+# 2. Histórico de Chat
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
     
@@ -245,7 +294,6 @@ def formatar_resposta(texto):
     
     return texto
 
-# --- EXIBIÇÃO DO CHAT ---
 for message in st.session_state.messages:
     if message["role"] == "user":
         pergunta_limpa = message["content"]
@@ -268,7 +316,7 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# --- INPUT DO USUÁRIO ---
+# 3. Input do Usuário
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -337,7 +385,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# --- BOTÃO LIMPAR ---
+# 4. Botão Limpar
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
