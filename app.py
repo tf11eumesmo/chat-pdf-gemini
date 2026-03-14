@@ -18,7 +18,7 @@ hr {
 }
 
 .block-container {
-    padding-top: 200px;
+    padding-top: 180px;
 }
 
 /* TOPO FIXO */
@@ -30,21 +30,20 @@ hr {
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 10px 40px;
+    padding: 15px 40px;
 }
 
-.header-row {
+.top-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
     margin-bottom: 10px;
 }
 
-.main-title {
+.top-label {
     font-size: 1rem;
     font-weight: 600;
     white-space: nowrap;
-    margin: 0;
 }
 
 .materia-info {
@@ -60,6 +59,7 @@ hr {
 .chat-title {
     font-size: 0.9rem;
     font-weight: 600;
+    color: #666;
 }
 
 /* CHAT */
@@ -90,12 +90,12 @@ hr {
     display: block;
 }
 
-/* Selectbox inline compacto */
+/* Selectbox customizado */
 .stSelectbox {
-    min-width: 200px;
+    min-width: 250px;
 }
 .stSelectbox > div {
-    min-width: 200px;
+    min-width: 250px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -113,24 +113,6 @@ try:
 except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
-pdf_options = {}
-if len(pdf_files) > 0:
-    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-        nome_original = pdf_path.name
-        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-        pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-
-# API Key check
-if "COHERE_API_KEY" not in st.secrets:
-    st.error("❌ COHERE_API_KEY não configurada")
-    st.stop()
-
-try:
-    co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
-except Exception as e:
-    st.error(f"❌ Erro na API: {e}")
-    st.stop()
-
 # Session state initialization
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -142,6 +124,32 @@ if "materia_nome" not in st.session_state:
     st.session_state.materia_nome = ""
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
+
+# Processar PDFs
+if len(pdf_files) == 0:
+    selected_pdf = None
+    selected_materia = None
+else:
+    pdf_options = {}
+    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+        nome_original = pdf_path.name
+        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+        pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
+    
+    selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
+    selected_pdf_info = pdf_options[selected_materia]
+    selected_pdf = selected_pdf_info['path']
+
+# API Key check
+if "COHERE_API_KEY" not in st.secrets:
+    st.error("❌ COHERE_API_KEY não configurada")
+    st.stop()
+
+try:
+    co = cohere.Client(api_key=st.secrets["COHERE_API_KEY"])
+except Exception as e:
+    st.error(f"❌ Erro na API: {e}")
+    st.stop()
 
 def extract_pdf_text(pdf_path):
     try:
@@ -160,21 +168,6 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
-# Carregar PDF selecionado
-selected_pdf = None
-selected_materia = None
-
-if len(pdf_options) > 0:
-    # Selectbox no topo (antes do top-fixed para aparecer visualmente acima)
-    col_label, col_select = st.columns([2, 3], gap="small")
-    with col_label:
-        st.markdown('<p class="main-title">📖 Escolha a matéria:</p>', unsafe_allow_html=True)
-    with col_select:
-        selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
-        selected_pdf_info = pdf_options[selected_materia]
-        selected_pdf = selected_pdf_info['path']
-
-# Atualizar conteúdo do PDF quando mudar a seleção
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
     if erro:
@@ -192,12 +185,27 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
+    <div class="top-row">
+        <span class="top-label">📖 Escolha a matéria:</span>
+        <div id="materia-select-container"></div>
+    </div>
+    
     <div class="materia-info">
         <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome if st.session_state.materia_nome else "Nenhuma"} • 
         <small>{st.session_state.caracteres_count:,} caracteres</small>
     </div>
+    
     <div class="chat-title">💬 Chat de Dúvidas</div>
 </div>
+""", unsafe_allow_html=True)
+
+# Esconder o selectbox padrão do Streamlit e mostrar apenas o customizado
+st.markdown("""
+<style>
+[data-testid="stSelectbox"] {
+    display: none;
+}
+</style>
 """, unsafe_allow_html=True)
 
 def formatar_resposta(texto):
