@@ -1,5 +1,5 @@
 import streamlit as st
-from google import genai
+import google.generativeai as genai
 from pypdf import PdfReader
 from pathlib import Path
 import re
@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS Personalizado
+# CSS Personalizado (sem remoção de botões - já resolvido no Netlify)
 st.markdown("""
 <style>
     .correct-answer {
@@ -34,6 +34,9 @@ st.markdown("""
         border-radius: 5px;
         margin: 10px 0;
         color: #155724;
+        position: sticky;
+        top: 0;
+        z-index: 100;
     }
     .materia-info strong {
         color: #155724;
@@ -59,73 +62,89 @@ st.markdown("""
         font-size: 1.5rem !important;
         font-weight: 600;
         margin-bottom: 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 101;
+        background: #ffffff;
+        padding: 10px 0;
     }
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stAppHeader {visibility: hidden;}
-    header {visibility: hidden;}
-    .stApp > div[data-testid="stToolbar"] {visibility: hidden;}
-    section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden;}
+    .chat-header {
+        font-size: 1.2rem !important;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #333;
+    }
+    /* Ajustar sidebar */
+    .stSidebar {
+        background-color: #f8f9fa;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Título principal com ícone e tamanho reduzido
+# Título principal (FIXO NO TOPO)
 st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>', unsafe_allow_html=True)
 
-# ==================== BARRA LATERAL ====================
+# ==================== SELEÇÃO DE MATÉRIA (NO TOPO, NÃO NA SIDEBAR) ====================
+st.header("📖 Selecionar Matéria")
+
+pdf_folder = Path("pdfs")
+if not pdf_folder.exists():
+    pdf_folder.mkdir(parents=True, exist_ok=True)
+
+pdf_files = []
+try:
+    for item in pdf_folder.iterdir():
+        if item.is_file() and item.suffix.lower() == ".pdf":
+            pdf_files.append(item)
+except Exception as e:
+    st.error(f"Erro ao listar PDFs: {e}")
+
+if len(pdf_files) == 0:
+    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
+    selected_pdf = None
+    selected_materia = None
+else:
+    pdf_options = {}
+    for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
+        nome_original = pdf_path.name
+        nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+        pdf_options[nome_exibicao] = {
+            'path': pdf_path,
+            'original_name': nome_original
+        }
+    
+    selected_materia = st.selectbox(
+        "Escolha a matéria:",
+        options=list(pdf_options.keys()),
+        index=0,
+        help="Selecione o PDF que será usado como fonte para as respostas"
+    )
+    
+    selected_pdf_info = pdf_options[selected_materia]
+    selected_pdf = selected_pdf_info['path']
+
+# ==================== BARRA LATERAL (APENAS API KEY STATUS) ====================
 with st.sidebar:
-    # Verificar API Key (só mostra erro se falhar)
+    st.header("⚙️ Configurações")
+    
     if "GEMINI_API_KEY" not in st.secrets:
         st.error("❌ API Key não configurada")
         st.stop()
     
     try:
-        client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     except Exception as e:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
     
+    st.success("✅ API Conectada")
     st.divider()
-    
-    # ==================== SELEÇÃO DE MATÉRIA ====================
-    st.header("📖 Selecionar Matéria")
-    
-    pdf_folder = Path("pdfs")
-    
-    if not pdf_folder.exists():
-        pdf_folder.mkdir(parents=True, exist_ok=True)
-    
-    pdf_files = []
-    try:
-        for item in pdf_folder.iterdir():
-            if item.is_file() and item.suffix.lower() == ".pdf":
-                pdf_files.append(item)
-    except Exception as e:
-        st.error(f"Erro ao listar PDFs: {e}")
-    
-    if len(pdf_files) == 0:
-        st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
-        selected_pdf = None
-        selected_materia = None
-    else:
-        pdf_options = {}
-        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
-            nome_original = pdf_path.name
-            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
-            pdf_options[nome_exibicao] = {
-                'path': pdf_path,
-                'original_name': nome_original
-            }
-        
-        selected_materia = st.selectbox(
-            "Escolha a matéria:",
-            options=list(pdf_options.keys()),
-            index=0,
-            help="Selecione o PDF que será usado como fonte para as respostas"
-        )
-        
-        selected_pdf_info = pdf_options[selected_materia]
-        selected_pdf = selected_pdf_info['path']
+    st.markdown("""
+    <small style='color: gray;'>
+    📚 Chat com PDF<br>
+    Powered by Google Gemini
+    </small>
+    """, unsafe_allow_html=True)
 
 # ==================== ESTADO DA SESSÃO ====================
 if "messages" not in st.session_state:
@@ -141,7 +160,6 @@ if "caracteres_count" not in st.session_state:
 
 # ==================== FUNÇÃO PARA EXTRAIR TEXTO ====================
 def extract_pdf_text(pdf_path):
-    """Extrai todo o texto de um PDF com tratamento de erros robusto"""
     try:
         reader = PdfReader(str(pdf_path))
         text = ""
@@ -152,19 +170,15 @@ def extract_pdf_text(pdf_path):
                     text += page_text + "\n\n"
             except Exception:
                 continue
-        
         if not text.strip():
             return None, "PDF vazio ou contém apenas imagens"
-        
         return text, None
-        
     except Exception as e:
         return None, f"Erro ao ler PDF: {str(e)}"
 
 # ==================== CARREGAR PDF QUANDO SELECIONADO ====================
 if selected_pdf and selected_pdf != st.session_state.current_pdf:
     texto, erro = extract_pdf_text(selected_pdf)
-    
     if erro:
         st.error(f"❌ {erro}")
         st.session_state.pdf_content = ""
@@ -177,7 +191,7 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ==================== MOSTRAR MATÉRIA SELECIONADA (VERDE) ====================
+# ==================== MOSTRAR MATÉRIA SELECIONADA (FIXA AO ROLAR) ====================
 if st.session_state.pdf_content:
     st.markdown(f"""
     <div class="materia-info">
@@ -188,8 +202,8 @@ if st.session_state.pdf_content:
 
 st.divider()
 
-# ==================== ÁREA DO CHAT ====================
-st.header("💬 Chat de Dúvidas")
+# ==================== ÁREA DO CHAT (TÍTULO MENOR) ====================
+st.markdown('<p class="chat-header">💬 Chat de Dúvidas</p>', unsafe_allow_html=True)
 
 for message in st.session_state.messages:
     if message["role"] == "user":
@@ -208,10 +222,6 @@ for message in st.session_state.messages:
 
 # ==================== FUNÇÃO PARA FORMATAR RESPOSTA ====================
 def formatar_resposta(texto):
-    """Destaca alternativas corretas com ✅ e fundo verde"""
-    
-    # Padrão 1: Alternativa correta marcada com **CORRETA** ou similar
-    # Ex: "A) Texto **CORRETA**" → "✅ A) Texto" com fundo verde
     padroes_correta = [
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*Correta\*\*', r'<span class="correct-answer">\1) \2</span>'),
@@ -220,29 +230,20 @@ def formatar_resposta(texto):
         (r'([A-E])\)\s*([^\n]*?)\s*\(Correta\)', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\(CORRETA\)', r'<span class="correct-answer">\1) \2</span>'),
     ]
-    
     for padrao, substituicao in padroes_correta:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    # Padrão 2: IA indica "Alternativa A está correta" → destacar A)
     padroes_indicacao = [
         (r'(Alternativa|Letra)\s*([A-E])\s*(está|é|:)\s*correta', r'<span class="correct-answer">\2) Alternativa correta</span>'),
         (r'Resposta:\s*([A-E])', r'<span class="correct-answer">\1) Resposta correta</span>'),
         (r'Gabarito:\s*([A-E])', r'<span class="correct-answer">\1) Gabarito</span>'),
     ]
-    
     for padrao, substituicao in padroes_indicacao:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    # Padrão 3: Formatar alternativas normais (sem destaque)
     texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
-    
-    # Remover asteriscos duplos restantes
     texto = texto.replace('**', '')
-    
-    # Quebras de linha para HTML
     texto = texto.replace('\n', '<br>')
-    
     return texto
 
 # ==================== INPUT DO USUÁRIO ====================
@@ -251,7 +252,6 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
-        
         st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{prompt}
@@ -280,15 +280,11 @@ PERGUNTA:
 
 RESPOSTA (use **CORRETA** para destacar a alternativa certa):
 """
-                
-                response = client.models.generate_content(
-                    model='gemini-1.5-flash',
-                    contents=full_prompt
-                )
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                response = model.generate_content(full_prompt)
                 resposta = response.text
                 
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
-                
                 resposta_formatada = formatar_resposta(resposta)
                 st.markdown(f"""
                 <div class="assistant-message">
