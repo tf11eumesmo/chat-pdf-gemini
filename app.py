@@ -18,7 +18,7 @@ hr {
 }
 
 .block-container {
-    padding-top: 160px;
+    padding-top: 100px;
 }
 
 /* TOPO FIXO */
@@ -30,21 +30,26 @@ hr {
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 15px 40px;
+    padding: 12px 40px;
 }
 
-.select-row {
+.main-title-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 10px;
+    gap: 15px;
+    margin-bottom: 8px;
 }
 
-.select-label {
+.main-title {
     font-size: 1.1rem;
     font-weight: 600;
     white-space: nowrap;
-    color: #333;
+}
+
+.chat-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 4px;
 }
 
 .materia-info {
@@ -52,15 +57,9 @@ hr {
     border-left: 4px solid #28a745;
     padding: 8px 12px;
     border-radius: 5px;
-    margin-bottom: 8px;
+    margin-top: 4px;
     color: #155724;
     font-size: 0.9rem;
-}
-
-.chat-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #666;
 }
 
 /* CHAT */
@@ -91,9 +90,9 @@ hr {
     display: block;
 }
 
-/* Esconder selectbox duplicado */
-.select-duplicada {
-    display: none !important;
+/* Selectbox customizado */
+.stSelectbox > div {
+    min-width: 200px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -111,24 +110,21 @@ try:
 except Exception as e:
     st.error(f"Erro ao listar PDFs: {e}")
 
-# Processar opções de PDF
-pdf_options = {}
-if len(pdf_files) > 0:
+selected_pdf = None
+selected_materia = None
+
+if len(pdf_files) == 0:
+    st.warning("⚠️ Nenhum PDF encontrado")
+else:
+    pdf_options = {}
     for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
         nome_original = pdf_path.name
         nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
         pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
-
-# Selectbox ÚNICO - no topo da página (antes do header fixo)
-selected_materia = None
-selected_pdf = None
-
-if pdf_options:
-    selected_materia = st.selectbox("📖 Escolha a matéria:", options=list(pdf_options.keys()), index=0, key="materia_select")
+    
+    selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0, key="materia_select", label_visibility="collapsed")
     selected_pdf_info = pdf_options[selected_materia]
     selected_pdf = selected_pdf_info['path']
-else:
-    st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
 
 # API Key check
 if "COHERE_API_KEY" not in st.secrets:
@@ -184,12 +180,15 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
 
-# ---------- TOPO FIXO (apenas informações, sem selectbox) ----------
+# ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
-    <div class="materia-info">
-        <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
-        <small>{st.session_state.caracteres_count:,} caracteres</small>
+    <div class="main-title-row">
+        <span class="main-title">📖 Escolha a matéria:</span>
+        <div class="materia-info">
+            <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+            <small>{st.session_state.caracteres_count:,} caracteres</small>
+        </div>
     </div>
     <div class="chat-title">💬 Chat de Dúvidas</div>
 </div>
