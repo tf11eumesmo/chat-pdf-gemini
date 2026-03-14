@@ -6,7 +6,7 @@ import re
 
 st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 
-# ---------- CSS DEFINITIVO ----------
+# ---------- CSS SIMPLIFICADO E EFETIVO ----------
 st.markdown("""
 <style>
 /* OCULTAR CABEÇALHO PADRÃO DO STREAMLIT */
@@ -19,26 +19,17 @@ hr {
 
 /* --- SIDEBAR TRAVADA E FIXA --- */
 
-/* Esconde o botão de colapso completamente */
+/* Esconde completamente o botão de colapso */
 div[data-testid="stSidebarCollapseButton"] {
     display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    opacity: 0 !important;
 }
 
-/* Esconde qualquer botão de header dentro da sidebar */
 section[data-testid="stSidebar"] button[kind="header"],
 section[data-testid="stSidebar"] button[kind="headerNoPadding"] {
     display: none !important;
-    visibility: hidden !important;
 }
 
-/* Sidebar fixa com largura definida - FORÇANDO TUDO */
+/* Sidebar fixa - apenas o essencial */
 section[data-testid="stSidebar"] {
     width: 300px !important;
     min-width: 300px !important;
@@ -51,33 +42,23 @@ section[data-testid="stSidebar"] {
     background-color: #f8f9fa !important;
     border-right: 1px solid #ddd !important;
     z-index: 1000 !important;
-    transform: none !important;
-    transition: none !important;
-    margin: 0 !important;
+}
+
+/* --- CONTAINER PRINCIPAL COM MARGEM FIXA --- */
+
+/* Criamos um container wrapper que empurra todo o conteúdo */
+.main-content-wrapper {
+    margin-left: 300px !important;
+    width: calc(100% - 300px) !important;
     padding: 0 !important;
 }
 
-/* --- CONTEÚDO PRINCIPAL AJUSTADO --- */
-
-/* Força o container principal a começar após a sidebar */
-.main > div:first-child {
-    margin-left: 300px !important;
-    width: calc(100% - 300px) !important;
-    max-width: calc(100% - 300px) !important;
-    padding-left: 2rem !important;
-    padding-right: 2rem !important;
-    position: relative !important;
-    left: 0 !important;
-}
-
-/* Ajuste do bloco de conteúdo */
+/* Ajuste do bloco de conteúdo dentro do wrapper */
 .block-container {
     padding-top: 150px !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
     max-width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
 }
 
 /* TOPO FIXO */
@@ -147,35 +128,9 @@ section[data-testid="stSidebar"] {
 
 .stSelectbox label { font-weight: 600; }
 
-/* Remove padding extra da sidebar */
-div[data-testid="stSidebar"] > div {
-    padding-top: 1rem;
-}
-
-/* Garante que o chat input não fique sobreposto */
+/* Chat input */
 .stChatInputContainer {
     max-width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    position: relative !important;
-    z-index: 100 !important;
-}
-
-/* Força o container do chat a ter largura correta */
-div[data-testid="stChatInputContainer"] {
-    max-width: 100% !important;
-    margin: 0 !important;
-}
-
-/* Ajuste fino para elementos internos */
-.stApp > main > div {
-    margin-left: 300px !important;
-    width: calc(100% - 300px) !important;
-}
-
-/* Garante que nada vaze para a área da sidebar */
-* {
-    box-sizing: border-box;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -261,6 +216,9 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.materia_nome = selected_materia
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
+
+# ---------- WRAPPER PARA CONTEÚDO PRINCIPAL ----------
+st.markdown('<div class="main-content-wrapper">', unsafe_allow_html=True)
 
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
@@ -432,3 +390,6 @@ with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
+
+# ---------- FECHAR WRAPPER ----------
+st.markdown('</div>', unsafe_allow_html=True)
