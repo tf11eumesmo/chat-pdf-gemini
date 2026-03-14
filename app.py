@@ -69,47 +69,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== SCRIPT JAVASCRIPT PARA REMOVER BOTÃO ====================
-def inject_remove_manage_button():
-    """Injeta JavaScript para remover o botão 'Gerenciar aplicativo'"""
-    js_script = """
-    <script>
-    function removeManageButton() {
-        // Seletor confirmado que funciona:
-        const btn = document.querySelector('[data-testid="manage-app-button"]');
-        if (btn) {
-            btn.remove();
-            return true;
-        }
-        return false;
-    }
-    
-    // Executa imediatamente
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', removeManageButton);
-    } else {
-        removeManageButton();
-    }
-    
-    // MutationObserver para remover se o botão for re-injetado
-    const observer = new MutationObserver(() => {
-        removeManageButton();
-    });
-    
-    if (document.body) {
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-    
-    // Tentativas extras para carregamentos tardios
-    setTimeout(removeManageButton, 2000);
-    setTimeout(removeManageButton, 5000);
-    </script>
-    """
-    st.components.v1.html(js_script, height=1, scrolling=False)
-
-# Injeta o script de remoção
-inject_remove_manage_button()
-
 # Título principal com ícone e tamanho reduzido
 st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>', unsafe_allow_html=True)
 
@@ -251,6 +210,8 @@ for message in st.session_state.messages:
 def formatar_resposta(texto):
     """Destaca alternativas corretas com ✅ e fundo verde"""
     
+    # Padrão 1: Alternativa correta marcada com **CORRETA** ou similar
+    # Ex: "A) Texto **CORRETA**" → "✅ A) Texto" com fundo verde
     padroes_correta = [
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*Correta\*\*', r'<span class="correct-answer">\1) \2</span>'),
@@ -263,6 +224,7 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_correta:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
+    # Padrão 2: IA indica "Alternativa A está correta" → destacar A)
     padroes_indicacao = [
         (r'(Alternativa|Letra)\s*([A-E])\s*(está|é|:)\s*correta', r'<span class="correct-answer">\2) Alternativa correta</span>'),
         (r'Resposta:\s*([A-E])', r'<span class="correct-answer">\1) Resposta correta</span>'),
@@ -272,8 +234,13 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_indicacao:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
+    # Padrão 3: Formatar alternativas normais (sem destaque)
     texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
+    
+    # Remover asteriscos duplos restantes
     texto = texto.replace('**', '')
+    
+    # Quebras de linha para HTML
     texto = texto.replace('\n', '<br>')
     
     return texto
