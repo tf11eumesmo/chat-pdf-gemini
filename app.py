@@ -9,61 +9,56 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
-/* Esconder header padrão do Streamlit */
+/* Esconder elementos padrão do Streamlit */
 header {visibility: hidden;}
 hr { display: none !important; }
 
-/* Container fixo no topo */
+/* Container fixo no topo - HEADER PRINCIPAL */
 #fixed-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
-    z-index: 9999;
-    border-bottom: 3px solid #28a745;
-    padding: 15px 40px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: white !important;
+    z-index: 9999 !important;
+    border-bottom: 2px solid #28a745 !important;
+    padding: 15px 50px !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
 }
 
-/* Ajuste do conteúdo para não ficar atrás do header fixo */
+/* Ajuste do conteúdo principal para não ficar atrás do header fixo */
 .main .block-container {
-    padding-top: 200px !important;
+    padding-top: 180px !important;
+    margin-top: 0 !important;
 }
 
-/* Estilo do seletor */
+/* Estilo do seletor de matéria */
 .stSelectbox {
-    margin: 10px 0;
+    margin-bottom: 10px !important;
 }
 
-/* Estilo das informações */
+.stSelectbox label {
+    font-weight: 600 !important;
+    color: #333 !important;
+}
+
+/* Estilo das informações da matéria */
 .materia-info {
-    background-color: #d4edda;
-    border-left: 4px solid #28a745;
-    padding: 10px 15px;
-    border-radius: 5px;
-    margin: 10px 0;
-    color: #155724;
-    font-size: 0.95rem;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    background-color: #d4edda !important;
+    border-left: 4px solid #28a745 !important;
+    padding: 10px 15px !important;
+    border-radius: 5px !important;
+    margin: 10px 0 !important;
+    color: #155724 !important;
+    font-size: 0.95rem !important;
 }
 
+/* Título do chat */
 .chat-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #333;
-    margin: 10px 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-/* Container do conteúdo fixo */
-.header-content {
-    max-width: 100%;
-    margin: 0;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: #333 !important;
+    margin: 10px 0 !important;
 }
 
 /* Estilos do chat */
@@ -91,11 +86,17 @@ hr { display: none !important; }
     color: #155724;
     display: block;
 }
-.stSelectbox label { font-weight: 600; }
+
+/* Esconder sidebar no mobile se necessário */
+@media (max-width: 768px) {
+    #fixed-header {
+        padding: 10px 20px !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SESSION STATE ----------
+# ---------- SESSION STATE (ANTES DO HEADER!) ----------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_pdf" not in st.session_state:
@@ -108,17 +109,11 @@ if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
 
 # ---------- HEADER FIXO ----------
-st.markdown('<div id="fixed-header">', unsafe_allow_html=True)
-
 with st.container():
-    st.markdown('<div class="header-content">', unsafe_allow_html=True)
+    st.markdown('<div id="fixed-header">', unsafe_allow_html=True)
     
-    # Linha 1: Título e seletor
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        st.markdown("### 📚 Escolha a matéria:")
-    with col2:
-        pass  # Espaço vazio
+    # Linha 1: Título do seletor
+    st.markdown("### 📖 Escolha a matéria:")
     
     # Lógica do seletor
     pdf_folder = Path("pdfs")
@@ -144,31 +139,29 @@ with st.container():
             nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
             pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
         
-        selected_materia = st.selectbox("", options=list(pdf_options.keys()), 
-                                       index=0, key="header_selectbox", label_visibility="collapsed")
+        selected_materia = st.selectbox(
+            "", 
+            options=list(pdf_options.keys()), 
+            index=0, 
+            key="header_selectbox", 
+            label_visibility="collapsed"
+        )
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
     
-    # Linha 2: Matéria atual e Chat
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        if st.session_state.get("materia_nome"):
-            st.markdown(f"""
-            <div class="materia-info">
-                <span style="font-size: 1.2rem;">📚</span>
-                <div>
-                    <strong>Matéria Atual:</strong> {st.session_state.materia_nome}<br>
-                    <small style="color: #666;">{st.session_state.caracteres_count:,} caracteres</small>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+    # Linha 2: Matéria atual (com verificação de segurança)
+    if st.session_state.get("materia_nome"):
+        st.markdown(f"""
+        <div class="materia-info">
+            <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+            <small>{st.session_state.caracteres_count:,} caracteres</small>
+        </div>
+        """, unsafe_allow_html=True)
     
-    with col2:
-        st.markdown('<div class="chat-title">💬 Chat de Dúvidas</div>', unsafe_allow_html=True)
+    # Linha 3: Título do chat
+    st.markdown('<div class="chat-title">💬 Chat de Dúvidas</div>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------- SIDEBAR (API Key) ----------
 with st.sidebar:
@@ -184,7 +177,7 @@ with st.sidebar:
         st.error(f"❌ Erro na API: {e}")
         st.stop()
     
-    st.info("💡 Dica: O cabeçalho com a seleção da matéria fica fixo no topo da página!")
+    st.info("💡 Dica: Selecione a matéria no topo da página para começar!")
 
 # ---------- FUNÇÃO DE EXTRAÇÃO DE PDF ----------
 def extract_pdf_text(pdf_path):
