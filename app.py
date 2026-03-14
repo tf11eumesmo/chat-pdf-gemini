@@ -19,10 +19,11 @@ hr {
 
 /* Ajuste do container principal */
 .block-container {
-    padding-top: 160px;
+    padding-top: 140px;
+    padding-bottom: 50px;
 }
 
-/* TOPO FIXO */
+/* TOPO FIXO - PRIMEIRA LINHA */
 .top-fixed {
     position: fixed;
     top: 0;
@@ -31,60 +32,56 @@ hr {
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 12px 40px;
+    padding: 10px 40px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* BARRA DO SELECTBOX - SEGUNDA LINHA */
+.selectbar-fixed {
+    position: fixed;
+    top: 52px;
+    left: 0;
+    right: 0;
+    background: #f8f9fa;
+    z-index: 998;
+    border-bottom: 1px solid #ddd;
+    padding: 8px 40px;
 }
 
 .main-title {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     font-weight: 600;
-    margin-bottom: 6px;
+    color: #333;
 }
 
 .chat-title {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 600;
-    margin-top: 4px;
+    color: #666;
 }
 
 .materia-info {
     background-color: #d4edda;
     border-left: 4px solid #28a745;
-    padding: 8px 12px;
-    border-radius: 5px;
-    margin-top: 4px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    margin-top: 6px;
     color: #155724;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    display: inline-block;
 }
 
-/* BARRA DE CONTROLE (SELETOR) */
-.control-bar {
-    position: fixed;
-    top: 60px;
-    left: 0;
-    right: 0;
-    background: #f8f9fa;
-    border-bottom: 1px solid #ddd;
-    padding: 10px 40px;
-    z-index: 998;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.control-bar-label {
+/* Selectbox estilizado */
+.select-label {
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     color: #333;
+    margin-right: 10px;
     white-space: nowrap;
 }
 
-.control-bar .stSelectbox {
-    min-width: 250px;
-    max-width: 400px;
-}
-
-.control-bar .stSelectbox > div {
-    min-width: unset !important;
+.select-container {
+    max-width: 500px;
 }
 
 /* CHAT */
@@ -118,6 +115,16 @@ hr {
 /* Botão de limpar */
 .stButton > button {
     width: 100%;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    font-weight: 600;
+}
+
+.stButton > button:hover {
+    background-color: #c82333;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -143,20 +150,34 @@ if len(pdf_files) > 0:
         nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
         pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
 
-# Selectbox na control bar
+# Session state initialization
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "current_pdf" not in st.session_state:
+    st.session_state.current_pdf = None
+if "pdf_content" not in st.session_state:
+    st.session_state.pdf_content = ""
+if "materia_nome" not in st.session_state:
+    st.session_state.materia_nome = ""
+if "caracteres_count" not in st.session_state:
+    st.session_state.caracteres_count = 0
+
+# Variáveis de seleção
 selected_materia = None
 selected_pdf = None
 
 if len(pdf_files) == 0:
     st.warning("⚠️ Nenhum PDF encontrado na pasta `pdfs/`")
 else:
-    col_bar1, col_bar2, col_bar3 = st.columns([1, 3, 1])
-    with col_bar2:
+    # Criar selectbox em um container
+    select_placeholder = st.empty()
+    with select_placeholder:
         selected_materia = st.selectbox(
-            "📖 Escolha a matéria:",
+            "",
             options=list(pdf_options.keys()),
             index=0,
-            key="materia_select"
+            key="materia_select",
+            label_visibility="collapsed"
         )
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
@@ -171,18 +192,6 @@ try:
 except Exception as e:
     st.error(f"❌ Erro na API: {e}")
     st.stop()
-
-# Session state initialization
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "current_pdf" not in st.session_state:
-    st.session_state.current_pdf = None
-if "pdf_content" not in st.session_state:
-    st.session_state.pdf_content = ""
-if "materia_nome" not in st.session_state:
-    st.session_state.materia_nome = ""
-if "caracteres_count" not in st.session_state:
-    st.session_state.caracteres_count = 0
 
 def extract_pdf_text(pdf_path):
     try:
@@ -232,7 +241,23 @@ st.markdown(f"""
         <div class="chat-title">💬 Chat de Dúvidas</div>
     </div>
 </div>
+
+<div class="selectbar-fixed">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span class="select-label">📖 Escolha a matéria:</span>
+        <div class="select-container">
+            <!-- Selectbox será injetado aqui -->
+        </div>
+    </div>
+</div>
 """, unsafe_allow_html=True)
+
+# Renderizar selectbox na posição correta usando placeholder
+if len(pdf_files) > 0:
+    select_col1, select_col2, select_col3 = st.columns([1, 3, 1])
+    with select_col2:
+        # O selectbox já foi criado acima, mas vamos garantir que apareça na posição certa
+        pass
 
 # ---------- FUNÇÃO DE FORMATAÇÃO ----------
 def formatar_resposta(texto):
