@@ -18,10 +18,10 @@ hr {
 }
 
 .block-container {
-    padding-top: 150px;
+    padding-top: 90px;  /* Reduzido de 150px para 90px */
 }
 
-/* TOPO FIXO */
+/* TOPO FIXO - MAIS COMPACTO */
 
 .top-fixed {
     position: fixed;
@@ -31,18 +31,18 @@ hr {
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
-    padding: 15px 40px;
+    padding: 8px 40px;  /* Reduzido padding vertical */
 }
 
 .top-info {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 3px;  /* Reduzido */
 }
 
 .materia-selector {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     color: #333;
 }
@@ -50,20 +50,32 @@ hr {
 .materia-atual {
     background-color: #d4edda;
     border-left: 4px solid #28a745;
-    padding: 8px 15px;
+    padding: 5px 12px;  /* Padding mais compacto */
     border-radius: 5px;
     color: #155724;
     font-weight: 500;
     display: inline-block;
+    font-size: 0.95rem;  /* Fonte um pouco menor */
+    margin-top: 3px;  /* Espaço mínimo */
+}
+
+.materia-atual strong {
+    font-weight: 700;
+}
+
+.materia-atual small {
+    font-weight: normal;
+    color: #155724;
+    opacity: 0.9;
 }
 
 .chat-title {
-    font-size: 1.2rem;
+    font-size: 1.1rem;  /* Reduzido */
     font-weight: 600;
     color: #2196f3;
     text-align: center;
-    margin-top: 10px;
-    padding-top: 8px;
+    margin-top: 5px;  /* Reduzido */
+    padding-top: 3px;  /* Reduzido */
     border-top: 1px dashed #ccc;
 }
 
@@ -97,14 +109,27 @@ hr {
 }
 
 .stSelectbox label { font-weight: 600; }
+
+/* Ajuste para o seletor ficar mais compacto */
+div[data-testid="stSelectbox"] {
+    margin-bottom: 0 !important;
+}
+
+div[data-testid="stSelectbox"] > label {
+    margin-bottom: 0 !important;
+    font-size: 0.95rem !important;
+}
+
+div[data-testid="stSelectbox"] div[data-baseweb="select"] {
+    margin-top: 0 !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 # ---------- SIDEBAR (agora apenas para configurações secundárias) ----------
 with st.sidebar:
     st.header("⚙️ Configurações")
-    
-    # st.divider() foi removido implicitamente pelo CSS, mas podemos manter a lógica da API Key abaixo
     
     if "COHERE_API_KEY" not in st.secrets:
         st.error("❌ COHERE_API_KEY não configurada")
@@ -175,20 +200,22 @@ else:
     if st.session_state.materia_nome and st.session_state.materia_nome in pdf_options:
         default_index = list(pdf_options.keys()).index(st.session_state.materia_nome)
 
-# ---------- TOPO FIXO com as 3 informações solicitadas ----------
+# ---------- TOPO FIXO com as informações solicitadas ----------
 st.markdown("""
 <div class="top-fixed">
 """, unsafe_allow_html=True)
 
-# Linha 1: Escolha a matéria (seletor)
-col1, col2, col3 = st.columns([2, 3, 2])
+# Linha 1: Escolha a matéria (seletor) - MAIS PERTO DO TOPO
+col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if len(pdf_files) > 0:
+        st.markdown("**📖 Escolha a matéria:**")
         selected_materia = st.selectbox(
-            "📖 Escolha a matéria:", 
+            "",  # Label vazio pois já colocamos o texto acima
             options=list(pdf_options.keys()), 
             index=default_index,
-            key="materia_selector_top"
+            key="materia_selector_top",
+            label_visibility="collapsed"  # Esconde o label do selectbox
         )
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
@@ -197,10 +224,10 @@ with col2:
         selected_pdf = None
         selected_materia = None
 
-# Linha 2: Matéria Atual
+# Linha 2: Matéria Atual COM CONTADOR DE CARACTERES
 st.markdown(f"""
 <div class="materia-atual">
-    📚 Matéria Atual: <strong>{st.session_state.materia_nome if st.session_state.materia_nome else 'Nenhuma matéria selecionada'}</strong>
+    📚 Matéria Atual: <strong>{st.session_state.materia_nome if st.session_state.materia_nome else 'Nenhuma matéria selecionada'}</strong> • <small>{st.session_state.caracteres_count:,} caracteres</small>
 </div>
 """, unsafe_allow_html=True)
 
@@ -229,8 +256,6 @@ if len(pdf_files) > 0 and selected_pdf:
             st.session_state.materia_nome = selected_materia
             st.session_state.caracteres_count = len(texto)
             st.session_state.messages = []  # Limpa histórico ao mudar de matéria
-
-# st.divider() removido aqui também pois o CSS esconde todas as linhas
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
