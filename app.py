@@ -12,6 +12,11 @@ st.markdown("""
 
 header {visibility: hidden;}
 
+/* REMOVER LINHAS DIVISÓRIAS (HR) */
+hr {
+    display: none !important;
+}
+
 .block-container {
     padding-top: 150px;
 }
@@ -21,7 +26,7 @@ header {visibility: hidden;}
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px; /* Ajuste conforme largura da sidebar */
+    left: 300px;
     right: 0;
     background: white;
     z-index: 999;
@@ -38,7 +43,7 @@ header {visibility: hidden;}
     font-size: 0.95rem;
     font-weight: 600;
     margin-top: 8px;
-    text-align: center; /* CENTRALIZADO CONFORME SOLICITADO */
+    text-align: center;
 }
 
 .materia-info {
@@ -84,7 +89,6 @@ header {visibility: hidden;}
 """, unsafe_allow_html=True)
 
 with st.sidebar:
-    # ALTERAÇÃO: Título da Sidebar modificado
     st.header("📖 Escolha a matéria:")
     
     pdf_folder = Path("pdfs")
@@ -110,12 +114,11 @@ with st.sidebar:
             nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
             pdf_options[nome_exibicao] = {'path': pdf_path, 'original_name': nome_original}
         
-        # ALTERAÇÃO: Removido o label "Escolha a matéria:", deixando apenas o selectbox
         selected_materia = st.selectbox("", options=list(pdf_options.keys()), index=0)
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
     
-    st.divider()
+    # st.divider() foi removido implicitamente pelo CSS, mas podemos manter a lógica da API Key abaixo
     
     if "COHERE_API_KEY" not in st.secrets:
         st.error("❌ COHERE_API_KEY não configurada")
@@ -189,19 +192,17 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-st.divider()
+# st.divider() removido aqui também pois o CSS esconde todas as linhas
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
     
-    # Remover tags HTML indesejadas
     texto = texto.replace('</div>', '')
     texto = texto.replace('<div>', '')
     texto = texto.replace('<br>', '\n')
-    texto = re.sub(r'<[^>]+>', '', texto)  # Remove todas as tags HTML
+    texto = re.sub(r'<[^>]+>', '', texto)
     texto = texto.strip()
     
-    # QUESTÕES DE MÚLTIPLA ESCOLHA (A, B, C, D, E)
     padroes_correta = [
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*Correta\*\*', r'<span class="correct-answer">\1) \2</span>'),
@@ -215,7 +216,6 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_correta:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    # QUESTÕES VERDADEIRO/FALSO (V/F)
     padroes_vf = [
         (r'(VERDADEIRO|V)\s*[-:]?\s*(CORRETO|CERTO|CORRETA)?\s*\*\*', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
         (r'(FALSO|F)\s*[-:]?\s*(INCORRETO|ERRADO|ERRADA)?\s*\*\*', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
@@ -226,7 +226,6 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_vf:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    # ENUMERAÇÃO/NUMERAÇÃO (1, 2, 3...)
     texto = re.sub(
         r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*',
         r'\1<span class="correct-answer">✅ \2</span>',
@@ -234,7 +233,6 @@ def formatar_resposta(texto):
         flags=re.IGNORECASE
     )
     
-    # QUESTÕES ABERTAS/DISCURSIVAS
     texto = re.sub(
         r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*',
         r'<span class="correct-answer">✅ Resposta: \2</span>',
@@ -242,7 +240,6 @@ def formatar_resposta(texto):
         flags=re.IGNORECASE
     )
     
-    # FORMATAÇÃO GERAL
     texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
     texto = re.sub(r'(\n|^)(V|v)\)\s*', r'\1<strong>V)</strong> ', texto)
     texto = re.sub(r'(\n|^)(F|f)\)\s*', r'\1<strong>F)</strong> ', texto)
@@ -254,12 +251,11 @@ def formatar_resposta(texto):
 
 for message in st.session_state.messages:
     if message["role"] == "user":
-        # ← ← ← LIMPAR PERGUNTA DO USUÁRIO (remover </div> e tags HTML) ← ← ←
         pergunta_limpa = message["content"]
         pergunta_limpa = pergunta_limpa.replace('</div>', '')
         pergunta_limpa = pergunta_limpa.replace('<div>', '')
         pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)  # Remove todas as tags HTML
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
         pergunta_limpa = pergunta_limpa.strip()
         
         st.markdown(f"""
@@ -281,7 +277,6 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # ← ← ← LIMPAR PERGUNTA ANTES DE EXIBIR ← ← ←
         pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
         pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
         
@@ -295,7 +290,6 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
             try:
                 texto_limitado = st.session_state.pdf_content[:100000]
                 
-                # ← ← ← PROMPT ATUALIZADO: questão completa, SEM justificativa ← ← ←
                 full_prompt = f"""
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
