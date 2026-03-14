@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS Personalizado (COM OCULTAÇÃO DO BOTÃO GERENCIAR)
+# CSS Personalizado
 st.markdown("""
 <style>
     .correct-answer {
@@ -60,27 +60,69 @@ st.markdown("""
         font-weight: 600;
         margin-bottom: 1rem;
     }
-    
-    /* ========== OCULTAR ELEMENTOS DO STREAMLIT CLOUD ========== */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stAppHeader {visibility: hidden;}
     header {visibility: hidden;}
     .stApp > div[data-testid="stToolbar"] {visibility: hidden;}
     section[data-testid="stSidebar"] .stHeaderActionElements {visibility: hidden;}
-    
-    /* Botão "Gerenciar Aplicativo" */
-    div[data-testid="stDecoration"] {display: none !important;}
-    .stDeployButton {display: none !important;}
-    button[title="Gerenciar aplicativo"] {display: none !important;}
-    button[title="Manage app"] {display: none !important;}
-    [data-testid="stSidebarContent"] .stDeployButton {display: none !important;}
-    
-    /* Forçar ocultação com !important */
-    .st-emotion-cache-1avcm0n {display: none !important;}
-    .st-emotion-cache-nt55v3 {display: none !important;}
 </style>
 """, unsafe_allow_html=True)
+
+# ==================== SCRIPT JAVASCRIPT PARA REMOVER BOTÃO ====================
+def inject_remove_manage_button():
+    """Injeta JavaScript para remover o botão 'Gerenciar aplicativo'"""
+    js_script = """
+    <script>
+    // Função para remover o botão
+    function removeManageButton() {
+        // Tenta múltiplos seletores para maior compatibilidade
+        const selectors = [
+            '[data-testid="manage-app-button"]',
+            'button[title="Gerenciar aplicativo"]',
+            'button[title="Manage app"]',
+            '#root > div:nth-child(1) > div > div > button',
+            '._terminalButton_rix23_138'
+        ];
+        
+        for (const selector of selectors) {
+            const btn = document.querySelector(selector);
+            if (btn) {
+                btn.remove();
+                console.log("✅ Botão 'Gerenciar aplicativo' removido");
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // Executa imediatamente se o DOM já carregou
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', removeManageButton);
+    } else {
+        removeManageButton();
+    }
+    
+    // Usa MutationObserver para capturar se o botão for re-injetado dinamicamente
+    const observer = new MutationObserver(() => {
+        removeManageButton();
+    });
+    
+    // Observa mudanças no body
+    if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+    
+    // Tenta novamente após 2 segundos (caso o Streamlit carregue tarde)
+    setTimeout(removeManageButton, 2000);
+    setTimeout(removeManageButton, 5000);
+    </script>
+    """
+    # Injeta o script com altura mínima (invisível)
+    st.components.v1.html(js_script, height=1, scrolling=False)
+
+# Chama a função para injetar o script
+inject_remove_manage_button()
 
 # Título principal com ícone e tamanho reduzido
 st.markdown('<p class="main-title">📚 Selecione uma matéria e faça perguntas sobre o conteúdo!</p>', unsafe_allow_html=True)
