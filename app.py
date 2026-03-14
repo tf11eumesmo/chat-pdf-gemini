@@ -15,6 +15,7 @@ header {visibility: hidden;}
 
 .block-container {
     padding-top: 150px;
+    padding-bottom: 120px;
 }
 
 /* TOPO FIXO */
@@ -41,8 +42,6 @@ header {visibility: hidden;}
     margin-top: 8px;
 }
 
-/* matéria atual */
-
 .materia-info {
     background-color: #d4edda;
     border-left: 4px solid #28a745;
@@ -52,7 +51,20 @@ header {visibility: hidden;}
     color: #155724;
 }
 
-/* chat */
+/* FOOTER FIXO */
+
+.bottom-bar {
+    position: fixed;
+    bottom: 70px;
+    left: 300px;
+    right: 0;
+    background: white;
+    padding: 10px 40px;
+    border-top: 1px solid #ddd;
+    z-index: 999;
+}
+
+/* CHAT */
 
 .user-message {
     background-color: #e3f2fd;
@@ -152,7 +164,7 @@ def extract_pdf_text(pdf_path):
             page_text = page.extract_text()
 
             if page_text:
-                text += page_text + "\n\n"
+                text += page_text + "\\n\\n"
 
         return text
 
@@ -196,13 +208,13 @@ def formatar_resposta(texto):
     texto = re.sub(r'<[^>]+>', '', texto)
 
     texto = re.sub(
-        r'([A-E])\)\s*(.*?)\s*\*\*CORRETA\*\*',
-        r'<span class="correct-answer">\1) \2</span>',
+        r'([A-E])\\)\\s*(.*?)\\s*\\*\\*CORRETA\\*\\*',
+        r'<span class="correct-answer">\\1) \\2</span>',
         texto,
         flags=re.IGNORECASE
     )
 
-    texto = texto.replace("\n", "<br>")
+    texto = texto.replace("\\n", "<br>")
 
     return texto
 
@@ -229,17 +241,6 @@ for message in st.session_state.messages:
         <strong>🤖 Assistente:</strong><br>{resposta}
         </div>
         """, unsafe_allow_html=True)
-
-# ---------- BOTÃO LIMPAR ----------
-
-col1, col2, col3 = st.columns([3,2,3])
-
-with col2:
-
-    if st.button("🗑️ Limpar Histórico", use_container_width=True):
-
-        st.session_state.messages = []
-        st.rerun()
 
 # ---------- INPUT ----------
 
@@ -279,3 +280,18 @@ Retorne a questão completa e marque a correta com **CORRETA**
         )
 
         st.rerun()
+
+# ---------- LIMPAR HISTÓRICO FIXO ----------
+
+st.markdown('<div class="bottom-bar">', unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns([3,2,3])
+
+with col2:
+
+    if st.button("🗑️ Limpar Histórico", use_container_width=True):
+
+        st.session_state.messages = []
+        st.rerun()
+
+st.markdown('</div>', unsafe_allow_html=True)
