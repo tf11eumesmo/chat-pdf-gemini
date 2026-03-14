@@ -1,9 +1,8 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 from pypdf import PdfReader
-import os
 from pathlib import Path
-import urllib.parse
+import re
 
 # Configuração da página
 st.set_page_config(
@@ -18,10 +17,11 @@ st.markdown("""
     .correct-answer {
         background-color: #d4edda;
         border-left: 4px solid #28a745;
-        padding: 10px;
+        padding: 10px 15px;
         border-radius: 5px;
-        margin: 10px 0;
-        font-weight: bold;
+        margin: 8px 0;
+        font-weight: 600;
+        display: inline-block;
     }
     .chat-container {
         max-width: 900px;
@@ -44,9 +44,12 @@ st.markdown("""
     .materia-info {
         background-color: #fff3cd;
         border-left: 4px solid #ffc107;
-        padding: 10px;
+        padding: 10px 15px;
         border-radius: 5px;
         margin: 10px 0;
+    }
+    .stSelectbox label {
+        font-weight: 600;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -61,8 +64,12 @@ with st.sidebar:
     
     # Verificar API Key
     if "GEMINI_API_KEY" in st.secrets:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        st.success("✅ API Gemini Conectada")
+        try:
+            client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+            st.success("✅ API Gemini Conectada")
+        except Exception as e:
+            st.error(f"❌ Erro ao conectar API: {e}")
+            st.stop()
     else:
         st.error("❌ API Key não configurada nos Secrets")
         st.info("Configure em: Settings → Secrets → GEMINI_API_KEY")
@@ -74,53 +81,45 @@ with st.sidebar:
     st.header("📖 Selecionar Matéria")
     st.markdown("*PDFs disponíveis no repositório*")
     
-    # Pasta dos PDFs
     pdf_folder = Path("pdfs")
     
     # Criar pasta se não existir
     if not pdf_folder.exists():
         pdf_folder.mkdir(parents=True, exist_ok=True)
+        st.info("📁 Pasta 'pdfs' criada. Adicione seus PDFs nela!")
     
-    # Listar todos os PDFs (case-insensitive)
-    pdf_extensions = ["*.pdf", "*.PDF"]
+    # Listar PDFs de forma robusta (aceita qualquer nome)
     pdf_files = []
-    for ext in pdf_extensions:
-        pdf_files.extend(pdf_folder.glob(ext))
-    
-    # Filtrar apenas arquivos válidos
-    pdf_files = [f for f in pdf_files if f.is_file()]
+    try:
+        for item in pdf_folder.iterdir():
+            if item.is_file() and item.suffix.lower() == ".pdf":
+                pdf_files.append(item)
+    except Exception as e:
+        st.error(f"⚠️ Erro ao listar PDFs: {e}")
     
     if len(pdf_files) == 0:
-        st.warning("⚠️ Nenhum PDF encontrado")
+        st.warning("⚠️ Nenhum PDF encontrado na pasta 'pdfs'")
         st.markdown("""
         **Como adicionar PDFs:**
         1. Vá no repositório GitHub
         2. Abra a pasta `pdfs`
         3. Clique em "Add file" → "Upload files"
-        4. Envie seus PDFs
+        4. Envie seus PDFs (aceita nomes com espaços e acentos!)
         5. Faça **Redeploy** no Streamlit
         """)
         selected_pdf = None
         selected_materia = None
     else:
-        # Criar dicionário com nomes originais e amigáveis
+        # Criar dicionário mantendo nomes originais
         pdf_options = {}
-        for pdf_path in pdf_files:
-            # Nome original do arquivo (com espaços, acentos, etc.)
+        for pdf_path in sorted(pdf_files, key=lambda x: x.name.lower()):
             nome_original = pdf_path.name
-            
-            # Nome amigável para exibição (remove extensão, formata)
-            nome_sem_ext = pdf_path.stem
-            nome_amigavel = nome_sem_ext.replace("_", " ").replace("-", " ").title()
-            
-            # Armazena: nome_amigavel → caminho completo
-            pdf_options[nome_amigavel] = {
+            # Nome para exibição no dropdown (formatado, mas informativo)
+            nome_exibicao = nome_original.replace(".pdf", "").replace(".PDF", "")
+            pdf_options[nome_exibicao] = {
                 'path': pdf_path,
                 'original_name': nome_original
             }
-        
-        # Ordenar alfabeticamente
-        pdf_options = dict(sorted(pdf_options.items()))
         
         # Dropdown para selecionar matéria
         selected_materia = st.selectbox(
@@ -130,18 +129,16 @@ with st.sidebar:
             help="Selecione o PDF que será usado como fonte para as respostas"
         )
         
-        # Dados do PDF selecionado
         selected_pdf_info = pdf_options[selected_materia]
         selected_pdf = selected_pdf_info['path']
         
-        # Mostrar informações
-        st.success(f"📄 {selected_pdf_info['original_name']}")
-        
+        # Mostrar informações do arquivo
         try:
             tamanho_kb = selected_pdf.stat().st_size / 1024
+            st.success(f"📄 {selected_pdf_info['original_name']}")
             st.info(f"📊 Tamanho: {tamanho_kb:.1f} KB")
         except:
-            st.info("📊 Tamanho: Não disponível")
+            st.success(f"📄 {selected_pdf_info['original_name']}")
 
 # ==================== ESTADO DA SESSÃO ====================
 if "messages" not in st.session_state:
@@ -155,22 +152,21 @@ if "materia_nome" not in st.session_state:
 
 # ==================== FUNÇÃO PARA EXTRAIR TEXTO ====================
 def extract_pdf_text(pdf_path):
-    """Extrai todo o texto de um PDF com tratamento de erros"""
+    """Extrai todo o texto de um PDF com tratamento de erros robusto"""
     try:
         reader = PdfReader(str(pdf_path))
         text = ""
-        total_pages = len(reader.pages)
-        
-        for i, page in enumerate(reader.pages):
+        for page_num, page in enumerate(reader.pages, 1):
             try:
                 page_text = page.extract_text()
-                if page_text:
+                if page_text and page_text.strip():
                     text += page_text + "\n\n"
             except Exception as e:
-                text += f"[Página {i+1} não pôde ser lida]\n\n"
+                text += f"[Página {page_num} não pôde ser lida]\n\n"
+                continue
         
-        if len(text.strip()) == 0:
-            return None, "PDF vazio ou apenas imagens (sem texto selecionável)"
+        if not text.strip():
+            return None, "PDF vazio ou contém apenas imagens (sem texto selecionável)"
         
         return text, None
         
@@ -198,7 +194,7 @@ if st.session_state.pdf_content:
     st.markdown(f"""
     <div class="materia-info">
         <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome}<br>
-        <small>As respostas serão baseadas neste conteúdo</small>
+        <small>As respostas serão baseadas apenas neste conteúdo</small>
     </div>
     """, unsafe_allow_html=True)
 else:
@@ -209,60 +205,44 @@ st.divider()
 # ==================== ÁREA DO CHAT ====================
 st.header("💬 Chat de Dúvidas")
 
-# Container do chat
-chat_container = st.container()
-
-with chat_container:
-    # Mostrar histórico de mensagens
-    for message in st.session_state.messages:
-        if message["role"] == "user":
-            st.markdown(f"""
-            <div class="user-message">
-                <strong>👤 Você:</strong><br>{message["content"]}
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            # Formatando resposta (destacar corretas)
-            resposta_formatada = formatar_resposta(message["content"])
-            st.markdown(f"""
-            <div class="assistant-message">
-                <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-            </div>
-            """, unsafe_allow_html=True)
+# Mostrar histórico de mensagens
+for message in st.session_state.messages:
+    if message["role"] == "user":
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{message["content"]}
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        resposta_formatada = formatar_resposta(message["content"])
+        st.markdown(f"""
+        <div class="assistant-message">
+            <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+        </div>
+        """, unsafe_allow_html=True)
 
 # ==================== FUNÇÃO PARA FORMATAR RESPOSTA ====================
 def formatar_resposta(texto):
     """Destaca alternativas corretas e formata a resposta"""
-    import re
-    
     # Destacar palavras-chave de resposta correta
-    padroes_correta = [
-        r'\*\*(CORRETA|Correta|correta)\*\*',
-        r'(CORRETA|Correta|correta):',
-        r'✅\s*(CORRETA|Correta|correta)',
-        r'(Alternativa|Letra)\s*[A-E]\s*-\s*Correta',
+    padroes = [
+        (r'\*\*CORRETA\*\*', '<span class="correct-answer">✅ CORRETA</span>'),
+        (r'\*\*Correta\*\*', '<span class="correct-answer">✅ Correta</span>'),
+        (r'(CORRETA|Correta|correta):', r'<span class="correct-answer">\1:</span>'),
+        (r'✅\s*(CORRETA|Correta|correta)', r'<span class="correct-answer">✅ \1</span>'),
+        (r'(Alternativa|Letra)\s*([A-E])\s*[-–:]\s*Correta', r'<span class="correct-answer">\1 \2 - Correta</span>'),
     ]
     
-    for padrao in padroes_correta:
-        texto = re.sub(
-            padrao, 
-            '<span class="correct-answer">✅ \\1</span>', 
-            texto, 
-            flags=re.IGNORECASE
-        )
+    for padrao, substituicao in padroes:
+        texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    # Formatar alternativas (A), B), C), etc.
-    texto = re.sub(
-        r'\n([A-E])\)', 
-        r'\n<strong>\1)</strong>', 
-        texto, 
-        flags=re.IGNORECASE
-    )
+    # Formatar alternativas: A) texto → <strong>A)</strong> texto
+    texto = re.sub(r'(\n|^)([A-E])\)', r'\1<strong>\2)</strong>', texto, flags=re.IGNORECASE)
     
-    # Formatar negritos duplos
+    # Remover asteriscos duplos restantes (markdown)
     texto = texto.replace('**', '')
     
-    # Quebras de linha
+    # Quebras de linha para HTML
     texto = texto.replace('\n', '<br>')
     
     return texto
@@ -272,28 +252,25 @@ if prompt := st.chat_input("Digite sua pergunta sobre a matéria..."):
     if not st.session_state.pdf_content:
         st.error("❌ Por favor, selecione uma matéria primeiro!")
     else:
-        # Adicionar mensagem do usuário ao histórico
+        # Adicionar mensagem do usuário
         st.session_state.messages.append({"role": "user", "content": prompt})
         
         # Mostrar mensagem do usuário
-        with chat_container:
-            st.markdown(f"""
-            <div class="user-message">
-                <strong>👤 Você:</strong><br>{prompt}
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{prompt}
+        </div>
+        """, unsafe_allow_html=True)
         
         # Gerar resposta da IA
         with st.spinner("🤔 Analisando conteúdo..."):
             try:
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                
-                # Prompt otimizado
+                # Prompt otimizado para a nova API
                 full_prompt = f"""
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
-REGRAS IMPORTANTES:
-1. Responda APENAS com base no conteúdo do material fornecido
+REGRAS OBRIGATÓRIAS:
+1. Responda APENAS com base no conteúdo do material fornecido abaixo
 2. Se houver questões com alternativas (A, B, C, D, E), indique claramente qual está **CORRETA**
 3. Destaque a resposta correta usando a palavra **CORRETA** em negrito
 4. Se não encontrar a informação no material, diga: "Não encontrei essa informação no material fornecido"
@@ -309,20 +286,23 @@ PERGUNTA DO ALUNO:
 RESPOSTA (indique a alternativa **CORRETA** se houver):
 """
                 
-                response = model.generate_content(full_prompt)
+                # Chamada à NOVA API google.genai
+                response = client.models.generate_content(
+                    model='gemini-1.5-flash',
+                    contents=full_prompt
+                )
                 resposta = response.text
                 
                 # Adicionar resposta ao histórico
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
                 
                 # Mostrar resposta formatada
-                with chat_container:
-                    resposta_formatada = formatar_resposta(resposta)
-                    st.markdown(f"""
-                    <div class="assistant-message">
-                        <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-                    </div>
-                    """, unsafe_allow_html=True)
+                resposta_formatada = formatar_resposta(resposta)
+                st.markdown(f"""
+                <div class="assistant-message">
+                    <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+                </div>
+                """, unsafe_allow_html=True)
                 
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
