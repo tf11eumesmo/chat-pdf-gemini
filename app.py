@@ -19,10 +19,7 @@ hr {
 }
 
 .block-container {
-    padding-top: 0px !important;
-    padding-bottom: 0px !important;
-    height: 100vh;
-    overflow: hidden;
+    padding-top: 150px;
 }
 
 /* BOTÃO DE FECHAR SIDEBAR (OCULTAR) */
@@ -30,6 +27,7 @@ hr {
     visibility: hidden !important;
     pointer-events: none;
 }
+/* Fallback para outras versões ou seletores específicos */
 button[aria-label="Close sidebar"],
 button[kind="headerNoPadding"] {
     display: none !important;
@@ -68,49 +66,40 @@ button[kind="headerNoPadding"] {
     color: #155724;
 }
 
-/* CONTAINER ROLÁVEL DO CHAT */
-.chat-scroll-container {
-    position: fixed;
-    top: 130px;
-    left: 300px;
-    right: 0;
-    bottom: 80px;
+/* CONTAINER DO CHAT COM ROLAGEM */
+.chat-container {
+    height: 60vh;
     overflow-y: auto;
-    overflow-x: hidden;
-    padding: 20px 40px;
-    background: white;
-    scroll-behavior: smooth;
+    padding-right: 10px;
+    margin-bottom: 20px;
 }
 
-/* Scrollbar customizada */
-.chat-scroll-container::-webkit-scrollbar {
+/* BARRA DE SCROLL PERSONALIZADA */
+.chat-container::-webkit-scrollbar {
     width: 8px;
 }
-.chat-scroll-container::-webkit-scrollbar-track {
+
+.chat-container::-webkit-scrollbar-track {
     background: #f1f1f1;
     border-radius: 4px;
 }
-.chat-scroll-container::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
+
+.chat-container::-webkit-scrollbar-thumb {
+    background: #888;
     border-radius: 4px;
 }
-.chat-scroll-container::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
+
+.chat-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 
-/* INPUT FIXO NO RODAPÉ */
-.stChatInputContainer, [data-testid="stChatInput"] {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 300px !important;
-    right: 0 !important;
-    background: white !important;
-    border-top: 1px solid #ddd !important;
-    padding: 10px 40px !important;
-    z-index: 998 !important;
+/* Fallback para Firefox */
+.chat-container {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
 }
 
-/* CHAT */
+/* CHAT MESSAGES */
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -139,12 +128,6 @@ button[kind="headerNoPadding"] {
 }
 
 .stSelectbox label { font-weight: 600; }
-
-/* Botão limpar */
-.clear-btn-container {
-    text-align: center;
-    padding: 10px 0 20px 0;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -233,17 +216,22 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
+
 <div class="materia-info">
 <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
 <small>{st.session_state.caracteres_count:,} caracteres</small>
 </div>
+
 <div class="chat-title">
 💬 Chat de Questões
 </div>
+
 </div>
 """, unsafe_allow_html=True)
 
 def formatar_resposta(texto):
+    """Formata a resposta para diferentes tipos de questão"""
+    
     texto = texto.replace('</div>', '')
     texto = texto.replace('<div>', '')
     texto = texto.replace('<br>', '\n')
@@ -252,13 +240,14 @@ def formatar_resposta(texto):
     
     padroes_correta = [
         (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*\*\*Correta\*\*', r'<span class="correct-answer">\1) \2</span>'),
+        (r'([A-E])\)\s*([^\n]*?)\s*\*Correta\*', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*CORRETA:', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*✅\s*CORRETA', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\(Correta\)', r'<span class="correct-answer">\1) \2</span>'),
         (r'([A-E])\)\s*([^\n]*?)\s*\(CORRETA\)', r'<span class="correct-answer">\1) \2</span>'),
         (r'✅\s*([A-E])\)\s*([^\n]*)', r'<span class="correct-answer">✅ \1) \2</span>'),
     ]
+    
     for padrao, substituicao in padroes_correta:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
@@ -268,68 +257,74 @@ def formatar_resposta(texto):
         (r'✅\s*(VERDADEIRO|V)', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
         (r'❌\s*(FALSO|F)', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
     ]
+    
     for padrao, substituicao in padroes_vf:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
     texto = re.sub(
         r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*',
         r'\1<span class="correct-answer">✅ \2</span>',
-        texto, flags=re.IGNORECASE
+        texto,
+        flags=re.IGNORECASE
     )
+    
     texto = re.sub(
         r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*',
         r'<span class="correct-answer">✅ Resposta: \2</span>',
-        texto, flags=re.IGNORECASE
+        texto,
+        flags=re.IGNORECASE
     )
+    
     texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
     texto = re.sub(r'(\n|^)(V|v)\)\s*', r'\1<strong>V)</strong> ', texto)
     texto = re.sub(r'(\n|^)(F|f)\)\s*', r'\1<strong>F)</strong> ', texto)
+    
     texto = texto.replace('**', '')
     texto = texto.replace('\n', '<br>')
+    
     return texto
 
-# ---------- MONTAR HTML DO CHAT ----------
-chat_html = '<div class="chat-scroll-container" id="chat-container">'
+# ---------- CHAT COM CONTAINER DE ROLAGEM ----------
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
 for message in st.session_state.messages:
     if message["role"] == "user":
         pergunta_limpa = message["content"]
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
-        chat_html += f"""
+        pergunta_limpa = pergunta_limpa.replace('</div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
+        pergunta_limpa = pergunta_limpa.strip()
+        
+        st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
         </div>
-        """
+        """, unsafe_allow_html=True)
     else:
         resposta_formatada = formatar_resposta(message["content"])
-        chat_html += f"""
+        st.markdown(f"""
         <div class="assistant-message">
             <strong>🤖 Assistente:</strong><br>{resposta_formatada}
         </div>
-        """
+        """, unsafe_allow_html=True)
 
-# Botão limpar dentro do container
-chat_html += '<div class="clear-btn-container" id="chat-bottom"></div>'
-chat_html += '</div>'
+st.markdown('</div>', unsafe_allow_html=True)  # Fecha .chat-container
 
-# Auto-scroll para o fim
-chat_html += """
-<script>
-    const container = document.getElementById('chat-container');
-    if (container) {
-        container.scrollTop = container.scrollHeight;
-    }
-</script>
-"""
-
-st.markdown(chat_html, unsafe_allow_html=True)
-
-# ---------- INPUT ----------
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
+        
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
+        </div>
+        """, unsafe_allow_html=True)
         
         with st.spinner("Analisando..."):
             try:
@@ -370,16 +365,22 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                     preamble="Você é um assistente útil e preciso."
                 )
                 resposta = response.text
+                
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
+                resposta_formatada = formatar_resposta(resposta)
+                st.markdown(f"""
+                <div class="assistant-message">
+                    <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+                </div>
+                """, unsafe_allow_html=True)
                 
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
-        
-        st.rerun()
+    
+    st.rerun()  # Recarrega para manter a rolagem consistente
 
-# ---------- BOTÃO LIMPAR ----------
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
