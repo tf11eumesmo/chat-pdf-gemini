@@ -14,10 +14,11 @@
   <style>
     /* Reset básico */
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    
     html, body { 
       width: 100%; 
       height: 100%; 
-      overflow: hidden; 
+      /* REMOVIDO: overflow: hidden (permitia rolagem no iframe) */
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
       background: #fff; 
     }
@@ -27,6 +28,7 @@
       position: relative; 
       width: 100vw; 
       height: 100vh; 
+      overflow: hidden; /* Só o container principal sem rolagem */
     }
     
     /* Iframe do Streamlit */
@@ -35,6 +37,9 @@
       height: 100%; 
       border: none; 
       display: block; 
+      /* Garante que o iframe possa rolar internamente */
+      overflow: auto;
+      scrolling: yes;
     }
     
     /* ========== OVERLAYS PARA BLOQUEAR ELEMENTOS ========== */
@@ -126,11 +131,18 @@
   <!-- Container principal -->
   <div class="iframe-container">
     <!-- Iframe do Streamlit -->
+    <!-- CORREÇÕES: 
+         1. Removido espaço extra na URL 
+         2. Removido "embed_options=disable_scrolling" 
+         3. Adicionado allow="fullscreen" para melhor compatibilidade 
+    -->
     <iframe 
       id="streamlit-frame" 
-      src="https://iadobizurado.streamlit.app?embed=true&embed_options=disable_scrolling" 
+      src="https://iadobizurado.streamlit.app?embed=true" 
       title="Respondendo questões"
       loading="lazy"
+      allow="fullscreen; camera; microphone; clipboard-read; clipboard-write;"
+      sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation"
     ></iframe>
     
     <!-- Overlay: botão "Gerenciar aplicativo" -->
@@ -164,6 +176,14 @@
       loader.classList.add('hidden');
       errorMsg.classList.add('show');
     });
+    
+    // Fallback: se o iframe não carregar em 15s, mostrar erro
+    setTimeout(() => {
+      if (loader && !loader.classList.contains('hidden')) {
+        loader.classList.add('hidden');
+        errorMsg.classList.add('show');
+      }
+    }, 15000);
   </script>
 </body>
 </html>
