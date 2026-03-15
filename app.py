@@ -9,68 +9,54 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
+
 /* OCULTAR HEADER PADRÃO */
 header {visibility: hidden;}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
-hr { display: none !important; }
+hr {
+    display: none !important;
+}
 
-/* AJUSTE DO CONTAINER PRINCIPAL */
 .block-container {
-    padding-top: 20px; /* Reduzido pois usaremos margem no chat */
-    padding-bottom: 50px;
+    padding-top: 150px;
 }
 
 /* BOTÃO DE FECHAR SIDEBAR (OCULTAR) */
-[data-testid="stSidebarCloseButton"] { visibility: hidden !important; pointer-events: none; }
-button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: none !important; }
+[data-testid="stSidebarCloseButton"] {
+    visibility: hidden !important;
+    pointer-events: none;
+}
+
+/* Fallback para outras versões ou seletores específicos */
+button[aria-label="Close sidebar"],
+button[kind="headerNoPadding"] {
+    display: none !important;
+}
 
 /* TOPO FIXO */
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px; /* Ajuste conforme largura da sidebar */
+    left: 300px;
     right: 0;
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
     padding: 15px 40px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
-/* ÁREA DE CHAT COM ROLAGEM */
-.chat-scroll-area {
-    height: calc(100vh - 280px); /* Altura dinâmica baseada na tela */
-    overflow-y: auto;
-    border: 1px solid #e0e0e0;
-    border-radius: 10px;
-    padding: 20px;
-    background-color: #fafafa;
-    margin-top: 100px; /* Espaço para não ficar atrás do header fixo */
-    margin-bottom: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.main-title {
+    font-size: 1.35rem;
+    font-weight: 600;
 }
 
-/* Customização da Barra de Rolagem */
-.chat-scroll-area::-webkit-scrollbar {
-    width: 8px;
+.chat-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 8px;
+    text-align: center;
 }
-.chat-scroll-area::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-.chat-scroll-area::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
-}
-.chat-scroll-area::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-.main-title { font-size: 1.35rem; font-weight: 600; }
-.chat-title { font-size: 0.95rem; font-weight: 600; margin-top: 8px; text-align: center; }
 
 .materia-info {
     background-color: #d4edda;
@@ -81,27 +67,21 @@ button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: no
     color: #155724;
 }
 
-/* MENSAGENS */
+/* CHAT */
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
     padding: 15px;
     border-radius: 10px;
-    margin: 5px 0;
-    align-self: flex-end;
-    max-width: 80%;
-    margin-left: auto;
+    margin: 10px 0;
 }
 
 .assistant-message {
-    background-color: #ffffff;
-    border: 1px solid #e0e0e0;
+    background-color: #f5f5f5;
     border-left: 4px solid #4caf50;
     padding: 15px;
     border-radius: 10px;
-    margin: 5px 0;
-    align-self: flex-start;
-    max-width: 85%;
+    margin: 10px 0;
 }
 
 .correct-answer {
@@ -117,10 +97,14 @@ button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: no
 
 .stSelectbox label { font-weight: 600; }
 
-/* Input de Chat */
-.stChatInputContainer {
-    z-index: 100;
-    position: relative;
+/* CHAT CONTAINER */
+.chat-container {
+    max-height: 500px; /* Defina a altura máxima do chat */
+    overflow-y: auto; /* Permite rolagem vertical */
+    padding: 10px; /* Padding do container */
+    border: 1px solid #ddd; /* Borda opcional */
+    border-radius: 5px; /* Borda arredondada */
+    background-color: #f9f9f9; /* Fundo do container */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -210,17 +194,25 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
+
 <div class="materia-info">
 <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
 <small>{st.session_state.caracteres_count:,} caracteres</small>
 </div>
-<div class="chat-title">💬 Chat de Questões</div>
+
+<div class="chat-title">
+💬 Chat de Questões
+</div>
+
 </div>
 """, unsafe_allow_html=True)
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
-    texto = texto.replace('</div>', '').replace('<div>', '').replace('<br>', '\n')
+    
+    texto = texto.replace('</div>', '')
+    texto = texto.replace('<div>', '')
+    texto = texto.replace('<br>', '\n')
     texto = re.sub(r'<[^>]+>', '', texto)
     texto = texto.strip()
     
@@ -247,23 +239,40 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_vf:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    texto = re.sub(r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*', r'\1<span class="correct-answer">✅ \2</span>', texto, flags=re.IGNORECASE)
-    texto = re.sub(r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*', r'<span class="correct-answer">✅ Resposta: \2</span>', texto, flags=re.IGNORECASE)
+    texto = re.sub(
+        r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*',
+        r'\1<span class="correct-answer">✅ \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
+    
+    texto = re.sub(
+        r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*',
+        r'<span class="correct-answer">✅ Resposta: \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
+    
     texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
     texto = re.sub(r'(\n|^)(V|v)\)\s*', r'\1<strong>V)</strong> ', texto)
     texto = re.sub(r'(\n|^)(F|f)\)\s*', r'\1<strong>F)</strong> ', texto)
     
-    texto = texto.replace('**', '').replace('\n', '<br>')
+    texto = texto.replace('**', '')
+    texto = texto.replace('\n', '<br>')
+    
     return texto
 
-# ---------- INÍCIO DA ÁREA DE CHAT COM ROLAGEM ----------
-st.markdown('<div class="chat-scroll-area" id="chat-container">', unsafe_allow_html=True)
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
-# Renderiza histórico
 for message in st.session_state.messages:
     if message["role"] == "user":
         pergunta_limpa = message["content"]
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
+        pergunta_limpa = pergunta_limpa.replace('</div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
+        pergunta_limpa = pergunta_limpa.strip()
+        
         st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
@@ -277,14 +286,16 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# Processa input e novas mensagens (ainda dentro do container)
+st.markdown('</div>', unsafe_allow_html=True)  # Fechar o container de chat
+
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        pergunta_limpa = re.sub(r'<[^>]+>', '', prompt).strip()
+        pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
         
         st.markdown(f"""
         <div class="user-message">
@@ -345,26 +356,8 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# ---------- FIM DA ÁREA DE CHAT ----------
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Botão de Limpar (Fora do container de rolagem)
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-
-# Script para rolar automaticamente para o final do chat
-st.markdown("""
-<script>
-    function scrollToBottom() {
-        var chatContainer = document.getElementById("chat-container");
-        if (chatContainer) {
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-    }
-    // Executa após o carregamento
-    scrollToBottom();
-</script>
-""", unsafe_allow_html=True)
