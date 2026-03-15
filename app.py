@@ -382,45 +382,57 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
             try:
                 texto_limitado = st.session_state.pdf_content[:100000]
 
-                full_prompt = f"""Você é um professor assistente especializado em {st.session_state.materia_nome}.
+                full_prompt = f"""Você é um assistente especializado em {st.session_state.materia_nome}.
 
-TAREFA: Responder APENAS as questões fornecidas, SEM criar novas questões, SEM alterar a ordem e SEM modificar o conteúdo das questões.
+INSTRUÇÃO CRÍTICA - LEIA COM ATENÇÃO:
+O usuário enviou uma LISTA DE QUESTÕES que já estão prontas e precisam ser respondidas.
+Você NÃO deve criar novas questões, NÃO deve reorganizar a ordem, NÃO deve modificar o texto das questões e NÃO deve adicionar títulos como "QUIZ 01" ou "QUIZ 02".
 
-INSTRUÇÕES IMPORTANTES:
-1. Mantenha EXATAMENTE a mesma ordem das questões enviadas
-2. Mantenha o texto original das questões (enunciados e alternativas) SEM alterações
-3. Responda cada questão IDENTIFICANDO a alternativa correta com [CORRETA] ao final dela
-4. NÃO adicione questões novas
-5. NÃO remova questões
-6. NÃO adicione explicações ou textos extras antes ou depois das respostas
-7. Se houver múltiplas questões, responda uma após a outra na mesma ordem recebida
+SUA ÚNICA TAREFA:
+1. Para CADA questão enviada pelo usuário, identifique a alternativa correta com base no material
+2. Responda EXATAMENTE na MESMA ORDEM em que as questões foram enviadas
+3. Mantenha o TEXTO ORIGINAL da questão (enunciado e alternativas) SEM ALTERAÇÕES
+4. Adicione [CORRETA] APENAS ao final da alternativa correta
+5. NÃO adicione explicações, comentários ou textos extras
 
-FORMATO DE RESPOSTA:
-- Para cada questão, apresente o enunciado completo seguido de TODAS as alternativas
-- Adicione [CORRETA] SOMENTE ao final da alternativa correta
-- Mantenha a formatação original das alternativas (A), B), etc.)
+EXEMPLO DE ENTRADA DO USUÁRIO:
+Questão 1: Qual é a capital do Brasil?
+A) São Paulo
+B) Rio de Janeiro
+C) Salvador
+D) Brasília
+E) Manaus
 
-EXEMPLO de resposta correta:
----
-Qual é a capital do Brasil?
+EXEMPLO DE SAÍDA CORRETA:
+Questão 1: Qual é a capital do Brasil?
 A) São Paulo
 B) Rio de Janeiro
 C) Salvador
 D) Brasília [CORRETA]
 E) Manaus
----
 
-Se não encontrar a informação no material para alguma questão, escreva: "Não encontrei essa informação no material para esta questão." e mantenha a questão.
+REGRAS DE OURO:
+- NÃO crie novas questões
+- NÃO remova questões
+- NÃO mude a ordem das questões
+- NÃO altere o texto das questões
+- NÃO adicione títulos como "QUIZ" ou "RESPOSTAS"
+- NÃO adicione separadores como "---"
+- Apenas repita cada questão com [CORRETA] na alternativa certa
+
+Se não encontrar a informação para alguma questão, escreva APENAS: "Não encontrei informação para esta questão no material." e mantenha a questão.
 
 ════════════════════════════════════════
 MATERIAL DE ESTUDO:
 {texto_limitado}
 
 ════════════════════════════════════════
-QUESTÕES PARA RESPONDER (responda na MESMA ordem):
+QUESTÕES DO USUÁRIO (responda na MESMA ORDEM, SEM CRIAR NOVAS):
+
 {prompt}
 
-RESPOSTA (apenas as questões respondidas na mesma ordem, sem adicionar novas):
+════════════════════════════════════════
+RESPOSTA (apenas as questões do usuário, na mesma ordem, com [CORRETA] na alternativa certa):
 """
 
                 response = co.chat(
@@ -428,7 +440,7 @@ RESPOSTA (apenas as questões respondidas na mesma ordem, sem adicionar novas):
                     message=full_prompt,
                     temperature=0.1,
                     max_tokens=4096,
-                    preamble="Você é um assistente preciso. Responda apenas as questões fornecidas, na mesma ordem, sem criar novas questões."
+                    preamble="Você é um assistente que APENAS responde às questões enviadas pelo usuário, na mesma ordem, sem criar novas questões ou modificar o texto original."
                 )
                 resposta = response.text
 
