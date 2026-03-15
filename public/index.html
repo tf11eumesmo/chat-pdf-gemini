@@ -3,48 +3,56 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  
-  <!-- Título da aba com emoji -->
   <title>Respondendo questões</title>
   
   <!-- Favicon com emoji 📚 -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
   
   <style>
-    /* Reset básico */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     html, body { 
       width: 100%; 
       height: 100%; 
-      /* REMOVIDO: overflow: hidden (permitia rolagem no iframe) */
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
       background: #fff; 
+      /* REMOVIDO overflow: hidden para permitir scroll no iframe */
     }
     
-    /* Container do iframe */
     .iframe-container { 
       position: relative; 
       width: 100vw; 
       height: 100vh; 
-      overflow: hidden; /* Só o container principal sem rolagem */
+      overflow: hidden;
     }
     
-    /* Iframe do Streamlit */
+    /* Iframe com scroll habilitado */
     #streamlit-frame { 
       width: 100%; 
       height: 100%; 
       border: none; 
       display: block; 
-      /* Garante que o iframe possa rolar internamente */
-      overflow: auto;
-      scrolling: yes;
+      overflow: auto !important;
+      -webkit-overflow-scrolling: touch; /* Smooth scroll no iOS */
     }
     
-    /* ========== OVERLAYS PARA BLOQUEAR ELEMENTOS ========== */
+    /* Força exibição da scrollbar no iframe */
+    #streamlit-frame::-webkit-scrollbar {
+      width: 10px !important;
+      height: 10px !important;
+    }
+    #streamlit-frame::-webkit-scrollbar-track {
+      background: #f1f1f1 !important;
+    }
+    #streamlit-frame::-webkit-scrollbar-thumb {
+      background: #888 !important;
+      border-radius: 5px !important;
+    }
+    #streamlit-frame::-webkit-scrollbar-thumb:hover {
+      background: #555 !important;
+    }
     
-    /* 1. Botão "Gerenciar aplicativo" (canto superior direito) */
+    /* Overlays de bloqueio */
     .top-right-blocker {
       position: absolute;
       top: 8px;
@@ -57,7 +65,6 @@
       border-radius: 6px;
     }
     
-    /* 2. Overlay ÚNICO em toda a base inferior (bloqueia cliques) */
     .bottom-bar-blocker {
       position: absolute;
       bottom: 0;
@@ -71,99 +78,88 @@
       box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
     }
     
-    /* ========== LOADER ========== */
+    /* Loader e erro */
     .loader {
-      position: fixed; 
-      top: 0; 
-      left: 0; 
-      width: 100%; 
-      height: 100%;
-      background: #fff; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #fff; display: flex; align-items: center; justify-content: center;
       z-index: 10000;
     }
     .loader.hidden { display: none; }
     .spinner {
-      width: 32px; 
-      height: 32px; 
-      border: 3px solid #e0e0e0;
-      border-top-color: #28a745; 
-      border-radius: 50%;
+      width: 32px; height: 32px; border: 3px solid #e0e0e0;
+      border-top-color: #28a745; border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
-    @keyframes spin { 
-      to { transform: rotate(360deg); } 
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     
-    /* ========== MENSAGEM DE ERRO ========== */
     .error-msg {
-      position: fixed; 
-      top: 50%; 
-      left: 50%; 
-      transform: translate(-50%, -50%);
-      background: #ffebee; 
-      color: #c62828; 
-      padding: 12px 20px;
-      border-radius: 6px; 
-      border-left: 4px solid #c62828;
-      max-width: 350px; 
-      text-align: center; 
-      display: none; 
-      z-index: 10001;
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #ffebee; color: #c62828; padding: 12px 20px;
+      border-radius: 6px; border-left: 4px solid #c62828;
+      max-width: 350px; text-align: center; display: none; z-index: 10001;
       font-size: 13px;
     }
     .error-msg.show { display: block; }
   </style>
 </head>
 <body>
-  <!-- Loader (spinner sem texto) -->
-  <div class="loader" id="loader">
-    <div class="spinner"></div>
-  </div>
+  <div class="loader" id="loader"><div class="spinner"></div></div>
+  <div class="error-msg" id="error-msg">Não foi possível carregar.<br><small>Recarregue a página.</small></div>
   
-  <!-- Mensagem de erro -->
-  <div class="error-msg" id="error-msg">
-    Não foi possível carregar.<br><small>Recarregue a página.</small>
-  </div>
-  
-  <!-- Container principal -->
   <div class="iframe-container">
-    <!-- Iframe do Streamlit -->
-    <!-- CORREÇÕES: 
-         1. Removido espaço extra na URL 
-         2. Removido "embed_options=disable_scrolling" 
-         3. Adicionado allow="fullscreen" para melhor compatibilidade 
-    -->
+    <!-- Iframe SEM disable_scrolling e com permissões completas -->
     <iframe 
       id="streamlit-frame" 
       src="https://iadobizurado.streamlit.app?embed=true" 
       title="Respondendo questões"
       loading="lazy"
-      allow="fullscreen; camera; microphone; clipboard-read; clipboard-write;"
-      sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation"
+      scrolling="yes"
+      allow="fullscreen; camera; microphone; clipboard-read; clipboard-write; autoplay"
+      sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation allow-pointer-lock"
     ></iframe>
     
-    <!-- Overlay: botão "Gerenciar aplicativo" -->
     <div class="top-right-blocker"></div>
-    
-    <!-- Overlay ÚNICO: toda a base inferior (bloqueia Fullscreen + Built with Streamlit) -->
     <div class="bottom-bar-blocker"></div>
   </div>
 
-  <!-- Scripts -->
   <script>
     const iframe = document.getElementById('streamlit-frame');
     const loader = document.getElementById('loader');
     const errorMsg = document.getElementById('error-msg');
     
-    // Esconder loader quando iframe carregar
+    // Quando o iframe carregar, tenta injetar CSS para forçar scroll
     iframe.addEventListener('load', () => {
-      setTimeout(() => loader.classList.add('hidden'), 500);
+      setTimeout(() => {
+        loader.classList.add('hidden');
+        
+        // Tenta injetar CSS no iframe (funciona se same-origin ou CORS permitir)
+        try {
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+          const style = iframeDoc.createElement('style');
+          style.textContent = `
+            /* Força scroll no body do Streamlit */
+            .main .block-container { 
+              overflow-y: auto !important; 
+              max-height: none !important; 
+            }
+            /* Garante que o chat-container tenha scroll */
+            .chat-container { 
+              overflow-y: auto !important; 
+              height: 60vh !important; 
+            }
+            /* Remove restrições de scroll do Streamlit */
+            [data-testid="stVerticalBlock"] { 
+              overflow: visible !important; 
+            }
+          `;
+          iframeDoc.head.appendChild(style);
+        } catch (e) {
+          console.log('Não foi possível injetar CSS no iframe (CORS):', e);
+        }
+      }, 500);
     });
     
-    // Timeout para erro (12 segundos)
+    // Timeout para erro
     setTimeout(() => {
       if (!loader.classList.contains('hidden')) {
         loader.classList.add('hidden');
@@ -171,19 +167,10 @@
       }
     }, 12000);
     
-    // Handler de erro
     iframe.addEventListener('error', () => {
       loader.classList.add('hidden');
       errorMsg.classList.add('show');
     });
-    
-    // Fallback: se o iframe não carregar em 15s, mostrar erro
-    setTimeout(() => {
-      if (loader && !loader.classList.contains('hidden')) {
-        loader.classList.add('hidden');
-        errorMsg.classList.add('show');
-      }
-    }, 15000);
   </script>
 </body>
 </html>
