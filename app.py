@@ -27,7 +27,6 @@ hr {
     visibility: hidden !important;
     pointer-events: none;
 }
-
 /* Fallback para outras versões ou seletores específicos */
 button[aria-label="Close sidebar"],
 button[kind="headerNoPadding"] {
@@ -38,12 +37,13 @@ button[kind="headerNoPadding"] {
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px;
+    left: 300px; /* Ajuste conforme largura da sidebar se necessário */
     right: 0;
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
     padding: 15px 40px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
 .main-title {
@@ -67,7 +67,36 @@ button[kind="headerNoPadding"] {
     color: #155724;
 }
 
-/* CHAT */
+/* --- NOVO: CONTAINER DE CHAT COM SCROLL --- */
+.chat-history-container {
+    max-height: 65vh; /* Altura máxima antes de rolar (65% da altura da tela) */
+    overflow-y: auto;  /* Habilita rolagem vertical */
+    padding-right: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #fafafa;
+}
+
+/* Estilização da barra de rolagem (opcional, para ficar mais bonito) */
+.chat-history-container::-webkit-scrollbar {
+    width: 8px;
+}
+.chat-history-container::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+    border-radius: 4px;
+}
+.chat-history-container::-webkit-scrollbar-thumb {
+    background: #ccc; 
+    border-radius: 4px;
+}
+.chat-history-container::-webkit-scrollbar-thumb:hover {
+    background: #aaa; 
+}
+/* ------------------------------------------- */
+
+/* CHAT MESSAGES */
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -96,16 +125,6 @@ button[kind="headerNoPadding"] {
 }
 
 .stSelectbox label { font-weight: 600; }
-
-/* CHAT CONTAINER */
-.chat-container {
-    max-height: 500px; /* Defina a altura máxima do chat */
-    overflow-y: auto; /* Permite rolagem vertical */
-    padding: 10px; /* Padding do container */
-    border: 1px solid #ddd; /* Borda opcional */
-    border-radius: 5px; /* Borda arredondada */
-    background-color: #f9f9f9; /* Fundo do container */
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -262,32 +281,36 @@ def formatar_resposta(texto):
     
     return texto
 
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+# --- ÁREA DE CHAT COM SCROLL ---
+with st.container():
+    # Aplicamos a classe CSS que define o scroll aqui
+    st.markdown('<div class="chat-history-container">', unsafe_allow_html=True)
+    
+    for message in st.session_state.messages:
+        if message["role"] == "user":
+            pergunta_limpa = message["content"]
+            pergunta_limpa = pergunta_limpa.replace('</div>', '')
+            pergunta_limpa = pergunta_limpa.replace('<div>', '')
+            pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
+            pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
+            pergunta_limpa = pergunta_limpa.strip()
+            
+            st.markdown(f"""
+            <div class="user-message">
+                <strong>👤 Você:</strong><br>{pergunta_limpa}
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            resposta_formatada = formatar_resposta(message["content"])
+            st.markdown(f"""
+            <div class="assistant-message">
+                <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+            </div>
+            """, unsafe_allow_html=True)
+            
+    st.markdown('</div>', unsafe_allow_html=True) # Fecha a div do container de scroll
 
-for message in st.session_state.messages:
-    if message["role"] == "user":
-        pergunta_limpa = message["content"]
-        pergunta_limpa = pergunta_limpa.replace('</div>', '')
-        pergunta_limpa = pergunta_limpa.replace('<div>', '')
-        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
-        pergunta_limpa = pergunta_limpa.strip()
-        
-        st.markdown(f"""
-        <div class="user-message">
-            <strong>👤 Você:</strong><br>{pergunta_limpa}
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        resposta_formatada = formatar_resposta(message["content"])
-        st.markdown(f"""
-        <div class="assistant-message">
-            <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-        </div>
-        """, unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)  # Fechar o container de chat
-
+# --- INPUT E BOTÕES (FORA DO SCROLL) ---
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -297,6 +320,7 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
         pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
         
+        # Renderiza a mensagem do usuário imediatamente
         st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
@@ -345,11 +369,16 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
                 resposta_formatada = formatar_resposta(resposta)
+                
+                # Renderiza a resposta do assistente imediatamente
                 st.markdown(f"""
                 <div class="assistant-message">
                     <strong>🤖 Assistente:</strong><br>{resposta_formatada}
                 </div>
                 """, unsafe_allow_html=True)
+                
+                # Força um rerun para atualizar o scroll corretamente se necessário
+                st.rerun() 
                 
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
