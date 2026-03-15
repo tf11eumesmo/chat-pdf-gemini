@@ -13,62 +13,49 @@ st.markdown("""
 header {visibility: hidden;}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
-hr { display: none !important; }
+hr {
+    display: none !important;
+}
 
 .block-container {
-    padding-top: 100px; /* Ajustado para não conflitar com o header fixo */
-    padding-bottom: 50px;
+    padding-top: 150px;
 }
 
 /* BOTÃO DE FECHAR SIDEBAR (OCULTAR) */
-[data-testid="stSidebarCloseButton"] { visibility: hidden !important; pointer-events: none; }
-button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: none !important; }
+[data-testid="stSidebarCloseButton"] {
+    visibility: hidden !important;
+    pointer-events: none;
+}
+/* Fallback para outras versões ou seletores específicos */
+button[aria-label="Close sidebar"],
+button[kind="headerNoPadding"] {
+    display: none !important;
+}
 
 /* TOPO FIXO */
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 0; /* Ajustado para ocupar tudo ou alinhar com sidebar */
+    left: 300px;
     right: 0;
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
     padding: 15px 40px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    height: 120px;
 }
 
-/* ÁREA DO CHAT COM ROLAGEM */
-.chat-window {
-    height: calc(100vh - 260px); /* Altura dinâmica baseada na tela */
-    overflow-y: auto;
-    background: #f9f9f9;
-    border-radius: 10px;
-    padding: 15px;
-    border: 1px solid #e0e0e0;
-    margin-top: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.main-title {
+    font-size: 1.35rem;
+    font-weight: 600;
 }
 
-/* Customização da Barra de Rolagem */
-.chat-window::-webkit-scrollbar {
-    width: 8px;
+.chat-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 8px;
+    text-align: center;
 }
-.chat-window::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-.chat-window::-webkit-scrollbar-thumb {
-    background-color: #ccc;
-    border-radius: 4px;
-}
-.chat-window::-webkit-scrollbar-thumb:hover {
-    background-color: #aaa;
-}
-
-.main-title { font-size: 1.35rem; font-weight: 600; }
-.chat-title { font-size: 0.95rem; font-weight: 600; margin-top: 8px; text-align: center; }
 
 .materia-info {
     background-color: #d4edda;
@@ -79,27 +66,21 @@ button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: no
     color: #155724;
 }
 
-/* MENSAGENS */
+/* CHAT */
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
     padding: 15px;
     border-radius: 10px;
-    margin: 5px 0;
-    align-self: flex-end; /* Opcional: alinhar à direita se usar flex */
-    width: 100%;
-    box-sizing: border-box;
+    margin: 10px 0;
 }
 
 .assistant-message {
-    background-color: #ffffff;
+    background-color: #f5f5f5;
     border-left: 4px solid #4caf50;
     padding: 15px;
     border-radius: 10px;
-    margin: 5px 0;
-    width: 100%;
-    box-sizing: border-box;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    margin: 10px 0;
 }
 
 .correct-answer {
@@ -115,11 +96,97 @@ button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: no
 
 .stSelectbox label { font-weight: 600; }
 
-/* Ajuste para o input não ficar colado */
-.stChatInputContainer {
+/* CONTAINER PRINCIPAL COM ROLAGEM */
+.main > .block-container {
+    max-height: calc(100vh - 250px);
+    overflow-y: auto !important;
+    padding-bottom: 100px !important;
+}
+
+/* CONTAINER DO CHAT COM ROLAGEM */
+.stChatMessageContainer, 
+[data-testid="stChatMessageContainer"] {
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* ÁREA DE MENSAGENS DO CHAT */
+.element-container:has(.user-message),
+.element-container:has(.assistant-message) {
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* CONTAINER DE MENSAGENS PERSONALIZADO */
+.messages-container {
+    max-height: calc(100vh - 320px);
+    overflow-y: auto;
+    padding: 10px;
+    margin-bottom: 100px;
+    scroll-behavior: smooth;
+}
+
+/* ESTILO DA BARRA DE ROLAGEM */
+.messages-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* AJUSTE PARA O INPUT DO CHAT FICAR FIXO NO RODAPÉ */
+.stChatInput {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    left: 320px;
+    z-index: 998;
+    background: white;
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    max-width: calc(100% - 340px);
+}
+
+/* BOTÃO LIMPAR HISTÓRICO */
+.stButton > button {
     margin-top: 10px;
-    position: relative;
-    z-index: 1000;
+    margin-bottom: 20px;
+}
+
+/* AJUSTE PARA DISPOSITIVOS MÓVEIS */
+@media (max-width: 768px) {
+    .top-fixed {
+        left: 0;
+        height: auto;
+        padding: 10px;
+    }
+    
+    .stChatInput {
+        left: 10px;
+        right: 10px;
+        max-width: calc(100% - 20px);
+    }
+    
+    .messages-container {
+        max-height: calc(100vh - 380px);
+    }
+}
+
+/* GARANTIR QUE O CONTEÚDO NÃO FIQUE ATRÁS DO INPUT */
+.main > .block-container {
+    margin-bottom: 100px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -199,7 +266,6 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.pdf_content = ""
         st.session_state.current_pdf = None
         st.session_state.caracteres_count = 0
-        st.session_state.messages = []
     else:
         st.session_state.pdf_content = texto
         st.session_state.current_pdf = selected_pdf
@@ -210,23 +276,25 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
-<div style="display: flex; justify-content: space-between; align-items: center;">
-    <div class="materia-info" style="margin:0;">
-        <strong>📚 Matéria:</strong> {st.session_state.materia_nome}
-    </div>
-    <div class="chat-title" style="margin:0;">
-        💬 Chat de Questões
-    </div>
-    <div style="font-size: 0.8rem; color: #666;">
-        {st.session_state.caracteres_count:,} chars
-    </div>
+
+<div class="materia-info">
+<strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
+<small>{st.session_state.caracteres_count:,} caracteres</small>
 </div>
+
+<div class="chat-title">
+💬 Chat de Questões
+</div>
+
 </div>
 """, unsafe_allow_html=True)
 
 def formatar_resposta(texto):
     """Formata a resposta para diferentes tipos de questão"""
-    texto = texto.replace('</div>', '').replace('<div>', '').replace('<br>', '\n')
+    
+    texto = texto.replace('</div>', '')
+    texto = texto.replace('<div>', '')
+    texto = texto.replace('<br>', '\n')
     texto = re.sub(r'<[^>]+>', '', texto)
     texto = texto.strip()
     
@@ -253,8 +321,20 @@ def formatar_resposta(texto):
     for padrao, substituicao in padroes_vf:
         texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
     
-    texto = re.sub(r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*', r'\1<span class="correct-answer">✅ \2</span>', texto, flags=re.IGNORECASE)
-    texto = re.sub(r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*', r'<span class="correct-answer">✅ Resposta: \2</span>', texto, flags=re.IGNORECASE)
+    texto = re.sub(
+        r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*',
+        r'\1<span class="correct-answer">✅ \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
+    
+    texto = re.sub(
+        r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*',
+        r'<span class="correct-answer">✅ Resposta: \2</span>',
+        texto,
+        flags=re.IGNORECASE
+    )
+    
     texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
     texto = re.sub(r'(\n|^)(V|v)\)\s*', r'\1<strong>V)</strong> ', texto)
     texto = re.sub(r'(\n|^)(F|f)\)\s*', r'\1<strong>F)</strong> ', texto)
@@ -264,55 +344,54 @@ def formatar_resposta(texto):
     
     return texto
 
-# ---------- RENDERIZAÇÃO DO CHAT COM ROLAGEM ----------
-# Construímos todo o HTML do histórico em uma única string para envolver em um container scrollável
-chat_html_content = ""
+# CONTAINER DE MENSAGENS COM ROLAGEM
+st.markdown("""
+<div class="messages-container" id="messages-container">
+""", unsafe_allow_html=True)
 
 for message in st.session_state.messages:
     if message["role"] == "user":
         pergunta_limpa = message["content"]
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
-        chat_html_content += f"""
+        pergunta_limpa = pergunta_limpa.replace('</div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
+        pergunta_limpa = pergunta_limpa.strip()
+        
+        st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
         </div>
-        """
+        """, unsafe_allow_html=True)
     else:
         resposta_formatada = formatar_resposta(message["content"])
-        chat_html_content += f"""
+        st.markdown(f"""
         <div class="assistant-message">
             <strong>🤖 Assistente:</strong><br>{resposta_formatada}
         </div>
-        """
+        """, unsafe_allow_html=True)
 
-# Renderiza o container com scroll
-st.markdown(f"""
-<div class="chat-window" id="chat-container">
-    {chat_html_content}
-</div>
-""", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
-# Script para rolar automaticamente para o fundo quando houver nova mensagem
-st.markdown("""
-<script>
-    var div = document.getElementById("chat-container");
-    if(div) {
-        div.scrollTop = div.scrollHeight;
-    }
-</script>
-""", unsafe_allow_html=True)
-
-# ---------- INPUT E AÇÕES ----------
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # Nota: O rerun vai acontecer aqui, então a mensagem do usuário aparecerá
-        # no loop acima na próxima execução.
-        # Para mostrar imediatamente antes do rerun, precisaríamos de lógica mais complexa,
-        # mas o padrão do Streamlit é atualizar o estado e rerodar.
+        pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
+        
+        # Reabre o container para adicionar a nova mensagem
+        st.markdown("""
+        <div class="messages-container">
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
+        </div>
+        """, unsafe_allow_html=True)
         
         with st.spinner("Analisando..."):
             try:
@@ -355,13 +434,30 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 resposta = response.text
                 
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
-                # O rerun acontecerá após este bloco, atualizando o chat_html_content
+                resposta_formatada = formatar_resposta(resposta)
+                st.markdown(f"""
+                <div class="assistant-message">
+                    <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                # JavaScript para rolar automaticamente para o final
+                st.markdown("""
+                <script>
+                    var container = document.getElementById('messages-container');
+                    if (container) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                </script>
+                """, unsafe_allow_html=True)
                 
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
+                st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
-        
-        st.rerun() # Força atualização para mostrar a resposta no container scrollável
+                st.markdown("</div>", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
