@@ -13,25 +13,14 @@ st.markdown("""
 header {visibility: hidden;}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
-hr {
-    display: none !important;
-}
+hr { display: none !important; }
 
-.block-container {
-    padding-top: 150px;
-    padding-bottom: 80px; /* Espaço para o input fixo */
-}
+.block-container { padding-top: 150px; }
 
 /* BOTÃO DE FECHAR SIDEBAR (OCULTAR) */
-[data-testid="stSidebarCloseButton"] {
-    visibility: hidden !important;
-    pointer-events: none;
-}
-/* Fallback para outras versões ou seletores específicos */
-button[aria-label="Close sidebar"],
-button[kind="headerNoPadding"] {
-    display: none !important;
-}
+[data-testid="stSidebarCloseButton"] { visibility: hidden !important; pointer-events: none; }
+
+button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: none !important; }
 
 /* TOPO FIXO */
 .top-fixed {
@@ -45,17 +34,8 @@ button[kind="headerNoPadding"] {
     padding: 15px 40px;
 }
 
-.main-title {
-    font-size: 1.35rem;
-    font-weight: 600;
-}
-
-.chat-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-top: 8px;
-    text-align: center;
-}
+.main-title { font-size: 1.35rem; font-weight: 600; }
+.chat-title { font-size: 0.95rem; font-weight: 600; margin-top: 8px; text-align: center; }
 
 .materia-info {
     background-color: #d4edda;
@@ -66,35 +46,15 @@ button[kind="headerNoPadding"] {
     color: #155724;
 }
 
-/* CONTAINER DO CHAT COM SCROLL */
+/* CHAT */
 .chat-container {
-    max-height: calc(100vh - 280px);
-    overflow-y: auto;
-    padding-right: 10px;
-    margin-bottom: 20px;
-    scroll-behavior: smooth;
+    max-height: 400px;  /* Altura máxima para a rolagem */
+    overflow-y: auto;   /* Permite rolagem vertical */
+    border: 1px solid #ddd; /* Opcional: adicionar borda */
+    border-radius: 5px; /* Opcional: bordas arredondadas */
+    padding: 10px; /* Espaçamento interno */
 }
 
-/* Estilização da barra de rolagem */
-.chat-container::-webkit-scrollbar {
-    width: 8px;
-}
-
-.chat-container::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.chat-container::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-}
-
-.chat-container::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-
-/* CHAT MESSAGES */
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -123,25 +83,6 @@ button[kind="headerNoPadding"] {
 }
 
 .stSelectbox label { font-weight: 600; }
-
-/* INPUT FIXO NA PARTE INFERIOR */
-.chat-input-container {
-    position: fixed;
-    bottom: 0;
-    left: 300px;
-    right: 0;
-    background: white;
-    padding: 20px 40px;
-    border-top: 1px solid #ddd;
-    z-index: 998;
-}
-
-/* Ajuste para quando a sidebar estiver colapsada */
-@media (max-width: 768px) {
-    .top-fixed, .chat-input-container {
-        left: 0;
-    }
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -195,8 +136,6 @@ if "materia_nome" not in st.session_state:
     st.session_state.materia_nome = ""
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
-if "chat_scroll" not in st.session_state:
-    st.session_state.chat_scroll = 0
 
 def extract_pdf_text(pdf_path):
     try:
@@ -297,8 +236,8 @@ def formatar_resposta(texto):
     
     return texto
 
-# ---------- CONTAINER DO CHAT COM SCROLL ----------
-chat_html = '<div class="chat-container" id="chat-container">'
+# ---------- CHAT AREA ----------
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
 for message in st.session_state.messages:
     if message["role"] == "user":
@@ -309,49 +248,21 @@ for message in st.session_state.messages:
         pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
         pergunta_limpa = pergunta_limpa.strip()
         
-        chat_html += f"""
+        st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
         </div>
-        """
+        """, unsafe_allow_html=True)
     else:
         resposta_formatada = formatar_resposta(message["content"])
-        chat_html += f"""
+        st.markdown(f"""
         <div class="assistant-message">
             <strong>🤖 Assistente:</strong><br>{resposta_formatada}
         </div>
-        """
+        """, unsafe_allow_html=True)
 
-chat_html += '</div>'
+st.markdown('</div>', unsafe_allow_html=True)
 
-# JavaScript para auto-scroll
-chat_html += """
-<script>
-function scrollToBottom() {
-    var container = document.getElementById('chat-container');
-    if (container) {
-        container.scrollTop = container.scrollHeight;
-    }
-}
-// Scroll quando a página carrega
-document.addEventListener('DOMContentLoaded', scrollToBottom);
-// Scroll quando novas mensagens são adicionadas
-setTimeout(scrollToBottom, 100);
-</script>
-"""
-
-st.markdown(chat_html, unsafe_allow_html=True)
-
-# ---------- INPUT FIXO ----------
-st.markdown('<div class="chat-input-container">', unsafe_allow_html=True)
-
-col1, col2, col3 = st.columns([1, 4, 1])
-with col2:
-    if st.button("🗑️ Limpar Histórico", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
-
-# Chat input
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -360,6 +271,12 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         
         pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
         pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
+        
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
+        </div>
+        """, unsafe_allow_html=True)
         
         with st.spinner("Analisando..."):
             try:
@@ -402,12 +319,20 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 resposta = response.text
                 
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
-                st.rerun()
+                resposta_formatada = formatar_resposta(resposta)
+                st.markdown(f"""
+                <div class="assistant-message">
+                    <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+                </div>
+                """, unsafe_allow_html=True)
                 
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
-                st.rerun()
 
-st.markdown('</div>', unsafe_allow_html=True)
+col1, col2, col3 = st.columns([1, 4, 1])
+with col2:
+    if st.button("🗑️ Limpar Histórico", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
