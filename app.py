@@ -9,6 +9,7 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
+
 /* OCULTAR HEADER PADRÃO */
 header {visibility: hidden;}
 
@@ -26,7 +27,6 @@ hr {
     visibility: hidden !important;
     pointer-events: none;
 }
-
 /* Fallback para outras versões ou seletores específicos */
 button[aria-label="Close sidebar"],
 button[kind="headerNoPadding"] {
@@ -67,14 +67,6 @@ button[kind="headerNoPadding"] {
 }
 
 /* CHAT */
-.chat-container {
-    height: 400px;  /* You can adjust this height */
-    overflow-y: scroll; 
-    border: 1px solid #ddd;
-    padding: 10px;
-    border-radius: 5px;
-}
-
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -259,12 +251,14 @@ def formatar_resposta(texto):
     
     return texto
 
-# ----- CHAT MESSAGES -----
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 for message in st.session_state.messages:
     if message["role"] == "user":
-        pergunta_limpa = message["content"].replace('</div>', '').replace('<div>', '').replace('<br>', ' ')
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
+        pergunta_limpa = message["content"]
+        pergunta_limpa = pergunta_limpa.replace('</div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
+        pergunta_limpa = pergunta_limpa.strip()
         
         st.markdown(f"""
         <div class="user-message">
@@ -278,7 +272,6 @@ for message in st.session_state.messages:
             <strong>🤖 Assistente:</strong><br>{resposta_formatada}
         </div>
         """, unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
