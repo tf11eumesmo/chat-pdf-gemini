@@ -244,8 +244,8 @@ def limpar_html(texto):
 def formatar_resposta(texto):
     """
     Formata a resposta do modelo linha a linha.
-    Preserva a ordem e numeração originais das questões.
-    Usa ✅ para marcar alternativas corretas.
+    Detecta qualquer variante de marcador de 'correta', remove tudo do texto visível,
+    e aplica o estilo verde apenas na linha correta.
     """
 
     # Regex para DETECTAR se uma linha contém marcador de correta
@@ -275,7 +275,6 @@ def formatar_resposta(texto):
     re_alt  = re.compile(r'^([A-Ea-e])\s*[)\.\-]\s*(.+)', re.DOTALL)
     re_enum = re.compile(r'^(\d+)\s*[)\.\-]\s*(.+)', re.DOTALL)
     re_vf   = re.compile(r'^(VERDADEIRO|FALSO|V|F)\b(.*)', re.IGNORECASE | re.DOTALL)
-    re_questao = re.compile(r'^(Questão\s+\d+|Q\d+|Q\.\s*\d+)', re.IGNORECASE)
 
     for linha in linhas:
         s = linha.strip()
@@ -288,15 +287,10 @@ def formatar_resposta(texto):
 
         # 2. Limpar para exibição
         s_vis = limpar_linha(s)
-        if not s_vis and not eh_correta:
+        if not s_vis:
             continue
 
-        # 3. Preservar numeração de questões (Questão 1, Questão 2, etc.)
-        if re_questao.match(s_vis):
-            resultado_html.append(f'<strong style="color: #1976d2; font-size: 1.1em;">{s_vis}</strong>')
-            continue
-
-        # 4. Classificar e formatar alternativas
+        # 3. Classificar e formatar
         m_alt  = re_alt.match(s_vis)
         m_enum = re_enum.match(s_vis)
         m_vf   = re_vf.match(s_vis)
@@ -341,7 +335,6 @@ def formatar_resposta(texto):
                 )
 
         else:
-            # Linhas de enunciado ou texto livre
             if eh_correta:
                 resultado_html.append(f'<span class="correct-answer">✅ {s_vis}</span>')
             else:
@@ -391,66 +384,51 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
 
                 full_prompt = f"""Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
-TAREFA: Responder EXATAMENTE às questões enviadas pelo usuário, na ORDEM e com a NUMERAÇÃO originais.
+TAREFA: Responder APENAS as questões fornecidas, SEM criar novas questões, SEM alterar a ordem e SEM modificar o conteúdo das questões.
 
-════════════════════════════════════════
-🚫 REGRAS OBRIGATÓRIAS (NÃO IGNORE):
+INSTRUÇÕES IMPORTANTES:
+1. Mantenha EXATAMENTE a mesma ordem das questões enviadas
+2. Mantenha o texto original das questões (enunciados e alternativas) SEM alterações
+3. Responda cada questão IDENTIFICANDO a alternativa correta com [CORRETA] ao final dela
+4. NÃO adicione questões novas
+5. NÃO remova questões
+6. NÃO adicione explicações ou textos extras antes ou depois das respostas
+7. Se houver múltiplas questões, responda uma após a outra na mesma ordem recebida
 
-1️⃣ PRESERVE A ORDEM: Responda na mesma sequência em que o usuário enviou.
-2️⃣ PRESERVE A NUMERAÇÃO: Use "Questão 1", "Questão 2", etc., exatamente como enviado.
-3️⃣ NÃO REORGANIZE: Não crie "Quiz 01", "Quiz 02" ou agrupe por tópicos.
-4️⃣ NÃO CRIE NOVAS QUESTÕES: Responda apenas o que foi perguntado.
-5️⃣ NÃO ALTERE ENUNCIADOS: Mantenha o texto original das questões.
-6️⃣ FORMATO DE RESPOSTA:
-   - Repita o enunciado completo da questão
-   - Liste TODAS as alternativas originais (a, b, c, d)
-   - Adicione [CORRETA] apenas ao final da alternativa correta
-   - NÃO altere o texto das alternativas
-   - NÃO adicione explicações, justificativas ou comentários extras
+FORMATO DE RESPOSTA:
+- Para cada questão, apresente o enunciado completo seguido de TODAS as alternativas
+- Adicione [CORRETA] SOMENTE ao final da alternativa correta
+- Mantenha a formatação original das alternativas (A), B), etc.)
 
-════════════════════════════════════════
-✅ EXEMPLO DE SAÍDA CORRETA (para uma questão do usuário):
+EXEMPLO de resposta correta:
+---
+Qual é a capital do Brasil?
+A) São Paulo
+B) Rio de Janeiro
+C) Salvador
+D) Brasília [CORRETA]
+E) Manaus
+---
 
-Questão 1
-(Enunciado não visível completamente no arquivo, baseado nas opções sobre elaboração de laudo)
-a) Inventar uma causa provável para não deixar o laudo em branco.
-b) Declarar "Causa não apurada".
-c) Pedir para a guarnição de combate decidir a causa.
-d) Culpar o proprietário por falta de cuidado. [CORRETA]
-
-Questão 2
-Quem é o responsável por realizar, de forma ordinária, o acionamento da equipe de investigação?
-a) A seguradora interessada no laudo.
-b) O Centro Operacional de Bombeiros (COB). [CORRETA]
-c) O proprietário do imóvel sinistrado.
-d) O oficial de área presente no local.
-
-════════════════════════════════════════
-❌ EXEMPLOS PROIBIDOS (NUNCA FAÇA):
-
-- Não use "# Quiz 01", "Quiz 02", etc.
-- Não renumere como "1.", "2.", "3." dentro de grupos
-- Não altere a ordem das questões
-- Não substitua o enunciado por um novo
-- Não adicione explicações após as alternativas
+Se não encontrar a informação no material para alguma questão, escreva: "Não encontrei essa informação no material para esta questão." e mantenha a questão.
 
 ════════════════════════════════════════
 MATERIAL DE ESTUDO:
 {texto_limitado}
 
 ════════════════════════════════════════
-QUESTÕES DO USUÁRIO (RESPONDA NESTA ORDEM EXATA):
+QUESTÕES PARA RESPONDER (responda na MESMA ordem):
 {prompt}
 
-RESPOSTA (mantendo ordem, numeração e texto originais + [CORRETA] na certa):
+RESPOSTA (apenas as questões respondidas na mesma ordem, sem adicionar novas):
 """
 
                 response = co.chat(
                     model="command-a-03-2025",
                     message=full_prompt,
-                    temperature=0.0,
+                    temperature=0.1,
                     max_tokens=4096,
-                    preamble="Siga as instruções de formatação e ordem à risca. Não crie conteúdo novo. Preserve a numeração original das questões."
+                    preamble="Você é um assistente preciso. Responda apenas as questões fornecidas, na mesma ordem, sem criar novas questões."
                 )
                 resposta = response.text
 
