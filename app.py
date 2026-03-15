@@ -9,7 +9,6 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
-
 /* OCULTAR HEADER PADRÃO */
 header {visibility: hidden;}
 
@@ -27,6 +26,7 @@ hr {
     visibility: hidden !important;
     pointer-events: none;
 }
+
 /* Fallback para outras versões ou seletores específicos */
 button[aria-label="Close sidebar"],
 button[kind="headerNoPadding"] {
@@ -66,35 +66,15 @@ button[kind="headerNoPadding"] {
     color: #155724;
 }
 
-/* CONTAINER DO CHAT COM SCROLL */
-.chat-container {
-    height: calc(100vh - 280px);
-    overflow-y: auto;
-    padding-right: 10px;
-    margin-bottom: 20px;
-    scroll-behavior: smooth;
-}
-
-/* Estilização da barra de rolagem */
-.chat-container::-webkit-scrollbar {
-    width: 8px;
-}
-
-.chat-container::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
-}
-
-.chat-container::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 10px;
-}
-
-.chat-container::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-
 /* CHAT */
+.chat-container {
+    height: 400px;  /* You can adjust this height */
+    overflow-y: scroll; 
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 5px;
+}
+
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -123,16 +103,6 @@ button[kind="headerNoPadding"] {
 }
 
 .stSelectbox label { font-weight: 600; }
-
-/* BOTÃO LIMPAR HISTÓRICO */
-.clear-button {
-    position: fixed;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1000;
-    width: 200px;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -289,17 +259,12 @@ def formatar_resposta(texto):
     
     return texto
 
-# ---------- CONTAINER DO CHAT COM SCROLL ----------
-st.markdown('<div class="chat-container" id="chat-container">', unsafe_allow_html=True)
-
+# ----- CHAT MESSAGES -----
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 for message in st.session_state.messages:
     if message["role"] == "user":
-        pergunta_limpa = message["content"]
-        pergunta_limpa = pergunta_limpa.replace('</div>', '')
-        pergunta_limpa = pergunta_limpa.replace('<div>', '')
-        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
-        pergunta_limpa = pergunta_limpa.strip()
+        pergunta_limpa = message["content"].replace('</div>', '').replace('<div>', '').replace('<br>', ' ')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
         
         st.markdown(f"""
         <div class="user-message">
@@ -313,21 +278,7 @@ for message in st.session_state.messages:
             <strong>🤖 Assistente:</strong><br>{resposta_formatada}
         </div>
         """, unsafe_allow_html=True)
-
 st.markdown('</div>', unsafe_allow_html=True)
-
-# JavaScript para scroll automático para o final
-st.markdown("""
-<script>
-function scrollToBottom() {
-    const chatContainer = document.getElementById('chat-container');
-    if (chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-}
-scrollToBottom();
-</script>
-""", unsafe_allow_html=True)
 
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
@@ -392,23 +343,13 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Scroll automático após nova mensagem
-                st.markdown("""
-                <script>
-                setTimeout(scrollToBottom, 100);
-                </script>
-                """, unsafe_allow_html=True)
-                
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
 
-# Botão limpar histórico centralizado
-st.markdown('<div class="clear-button">', unsafe_allow_html=True)
-col1, col2, col3 = st.columns([1, 2, 1])
+col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
