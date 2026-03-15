@@ -248,7 +248,6 @@ def formatar_resposta(texto):
     e aplica o estilo verde apenas na linha correta.
     """
 
-    # Regex para DETECTAR se uma linha contém marcador de correta
     re_detectar = re.compile(
         r'\[CORRETA\]|>>>CORRETA<<<|##CORRETA##'
         r'|\*{1,2}CORRETA\*{1,2}|\*{1,2}CORRETO\*{1,2}'
@@ -261,12 +260,11 @@ def formatar_resposta(texto):
     def limpar_linha(s):
         """Remove todos os marcadores e resíduos de formatação do texto visível."""
         s = re_detectar.sub('', s)
-        s = re.sub(r'\*{1,2}([^*\n]+)\*{1,2}', r'\1', s)  # **bold** → bold
-        s = re.sub(r'[<>]{3}', '', s)   # >>> ou <<<
+        s = re.sub(r'\*{1,2}([^*\n]+)\*{1,2}', r'\1', s)
+        s = re.sub(r'[<>]{3}', '', s)
         s = s.replace('##', '').replace('✅', '').replace('❌', '')
         return s.strip()
 
-    # Remover HTML residual
     texto = re.sub(r'<[^>]+>', '', texto).strip()
 
     linhas = texto.split('\n')
@@ -282,15 +280,12 @@ def formatar_resposta(texto):
             resultado_html.append('<br>')
             continue
 
-        # 1. Detectar ANTES de qualquer limpeza
         eh_correta = bool(re_detectar.search(s))
 
-        # 2. Limpar para exibição
         s_vis = limpar_linha(s)
         if not s_vis:
             continue
 
-        # 3. Classificar e formatar
         m_alt  = re_alt.match(s_vis)
         m_enum = re_enum.match(s_vis)
         m_vf   = re_vf.match(s_vis)
@@ -362,7 +357,7 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True)  # Fecha .chat-container
+st.markdown('</div>', unsafe_allow_html=True)
 
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
@@ -382,60 +377,53 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
             try:
                 texto_limitado = st.session_state.pdf_content[:100000]
 
-                full_prompt = f"""IMPORTANTE: O MATERIAL DE ESTUDO ABAIXO CONTÉM QUESTIONÁRIOS/QUIZZES. IGNORE-OS COMPLETAMENTE.
-
-Você é um assistente especializado em {st.session_state.materia_nome}.
-
-INSTRUÇÃO CRÍTICA - LEIA COM ATENÇÃO:
-O usuário enviou {len(prompt.split('Questão')) - 1} questões específicas para serem respondidas.
-O material de estudo contém seus próprios quizzes, mas você DEVE IGNORAR esses quizzes do material.
-
-SUA ÚNICA TAREFA:
-1. IGNORE completamente qualquer questão, quiz ou questionário que exista no MATERIAL DE ESTUDO
-2. Foque APENAS nas questões listadas em "QUESTÕES DO USUÁRIO" abaixo
-3. Para CADA questão do usuário, identifique a alternativa correta com base no material
-4. Responda EXATAMENTE na MESMA ORDEM em que foram enviadas
-5. Mantenha o TEXTO ORIGINAL da questão (enunciado e alternativas) SEM ALTERAÇÕES
-6. Adicione [CORRETA] APENAS ao final da alternativa correta
-7. NÃO adicione títulos como "QUIZ", "Questionário" ou separadores
-
-REGRAS ABSOLUTAS:
-- NÃO crie novas questões baseadas no material
-- NÃO responda aos quizzes que estão no material
-- NÃO reorganize as questões
-- NÃO adicione explicações
-- Apenas repita cada questão com [CORRETA] na alternativa certa
-
-Exemplo do que NÃO fazer (errado):
-QUIZ 01
-1. Pergunta do material... (NÃO FAÇA ISSO)
-
-Exemplo do que fazer (correto):
-Questão 1: [texto da questão do usuário]
-A) [alternativa]
-B) [alternativa]
-C) [alternativa correta] [CORRETA]
-D) [alternativa]
+                full_prompt = f"""Você é um assistente que SOMENTE identifica a resposta correta de questões enviadas pelo usuário.
 
 ════════════════════════════════════════
-MATERIAL DE ESTUDO (use apenas para consultar respostas, IGNORE os quizzes dele):
+REGRAS ABSOLUTAS — LEIA COM ATENÇÃO:
+
+1. REPRODUZA CADA QUESTÃO EXATAMENTE COMO O USUÁRIO ENVIOU.
+   - Copie o enunciado palavra por palavra, sem alterar nada.
+   - Copie TODAS as alternativas na mesma ordem em que aparecem.
+   - NÃO adicione, remova, reordene nem reformule nenhum trecho.
+
+2. IDENTIFIQUE A ALTERNATIVA CORRETA e adicione [CORRETA] ao final APENAS dela.
+   - Use o MATERIAL DE CONSULTA abaixo para determinar a resposta certa.
+   - Se não encontrar a resposta no material, escreva "Não encontrei essa informação no material." e reproduza a questão sem marcar nenhuma alternativa.
+
+3. NÃO CRIE NOVAS QUESTÕES.
+   - Responda somente as questões que estão na seção "QUESTÕES DO USUÁRIO".
+   - Ignore qualquer questão que apareça no MATERIAL DE CONSULTA — ele existe apenas como fonte de consulta, não como perguntas a serem respondidas.
+
+4. NÃO ADICIONE COMENTÁRIOS, EXPLICAÇÕES NEM JUSTIFICATIVAS.
+   - Sua resposta deve conter apenas as questões reproduzidas com [CORRETA] marcado.
+
+════════════════════════════════════════
+EXEMPLO CORRETO de saída para múltipla escolha:
+
+Qual é a capital do Brasil?
+A) São Paulo
+B) Rio de Janeiro
+C) Salvador
+D) Brasília [CORRETA]
+E) Manaus
+
+════════════════════════════════════════
+MATERIAL DE CONSULTA (use apenas como referência para encontrar as respostas):
 {texto_limitado}
 
 ════════════════════════════════════════
-QUESTÕES DO USUÁRIO (estas são as ÚNICAS que você deve responder, IGNORE qualquer quiz do material):
-
+QUESTÕES DO USUÁRIO (reproduza e responda APENAS estas):
 {prompt}
-
 ════════════════════════════════════════
-RESPOSTA (apenas as questões do usuário acima, na mesma ordem, com [CORRETA] na alternativa certa):
 """
 
                 response = co.chat(
                     model="command-a-03-2025",
                     message=full_prompt,
-                    temperature=0.1,
+                    temperature=0.0,
                     max_tokens=4096,
-                    preamble="VOCÊ DEVE IGNORAR COMPLETAMENTE OS QUIZZES DO MATERIAL. Responda APENAS às questões enviadas pelo usuário."
+                    preamble="Você é um assistente preciso. Reproduza as questões do usuário exatamente como foram enviadas e marque apenas a alternativa correta com [CORRETA]. Nunca crie questões novas."
                 )
                 resposta = response.text
 
