@@ -9,7 +9,6 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
-
 /* OCULTAR HEADER PADRÃO */
 header {visibility: hidden;}
 
@@ -20,6 +19,7 @@ hr {
 
 .block-container {
     padding-top: 150px;
+    padding-bottom: 80px; /* Espaço para o input fixo */
 }
 
 /* BOTÃO DE FECHAR SIDEBAR (OCULTAR) */
@@ -37,13 +37,12 @@ button[kind="headerNoPadding"] {
 .top-fixed {
     position: fixed;
     top: 0;
-    left: 300px; /* Ajuste conforme largura da sidebar se necessário */
+    left: 300px;
     right: 0;
     background: white;
     z-index: 999;
     border-bottom: 1px solid #ddd;
     padding: 15px 40px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
 .main-title {
@@ -67,34 +66,33 @@ button[kind="headerNoPadding"] {
     color: #155724;
 }
 
-/* --- NOVO: CONTAINER DE CHAT COM SCROLL --- */
-.chat-history-container {
-    max-height: 65vh; /* Altura máxima antes de rolar (65% da altura da tela) */
-    overflow-y: auto;  /* Habilita rolagem vertical */
+/* CONTAINER DO CHAT COM SCROLL */
+.chat-container {
+    max-height: calc(100vh - 280px);
+    overflow-y: auto;
     padding-right: 10px;
     margin-bottom: 20px;
-    border: 1px solid #eee;
-    border-radius: 8px;
-    padding: 10px;
-    background-color: #fafafa;
+    scroll-behavior: smooth;
 }
 
-/* Estilização da barra de rolagem (opcional, para ficar mais bonito) */
-.chat-history-container::-webkit-scrollbar {
+/* Estilização da barra de rolagem */
+.chat-container::-webkit-scrollbar {
     width: 8px;
 }
-.chat-history-container::-webkit-scrollbar-track {
-    background: #f1f1f1; 
+
+.chat-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
     border-radius: 4px;
 }
-.chat-history-container::-webkit-scrollbar-thumb {
-    background: #ccc; 
+
+.chat-container::-webkit-scrollbar-thumb {
+    background: #888;
     border-radius: 4px;
 }
-.chat-history-container::-webkit-scrollbar-thumb:hover {
-    background: #aaa; 
+
+.chat-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
-/* ------------------------------------------- */
 
 /* CHAT MESSAGES */
 .user-message {
@@ -125,6 +123,25 @@ button[kind="headerNoPadding"] {
 }
 
 .stSelectbox label { font-weight: 600; }
+
+/* INPUT FIXO NA PARTE INFERIOR */
+.chat-input-container {
+    position: fixed;
+    bottom: 0;
+    left: 300px;
+    right: 0;
+    background: white;
+    padding: 20px 40px;
+    border-top: 1px solid #ddd;
+    z-index: 998;
+}
+
+/* Ajuste para quando a sidebar estiver colapsada */
+@media (max-width: 768px) {
+    .top-fixed, .chat-input-container {
+        left: 0;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -178,6 +195,8 @@ if "materia_nome" not in st.session_state:
     st.session_state.materia_nome = ""
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
+if "chat_scroll" not in st.session_state:
+    st.session_state.chat_scroll = 0
 
 def extract_pdf_text(pdf_path):
     try:
@@ -213,16 +232,13 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
-
 <div class="materia-info">
 <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
 <small>{st.session_state.caracteres_count:,} caracteres</small>
 </div>
-
 <div class="chat-title">
 💬 Chat de Questões
 </div>
-
 </div>
 """, unsafe_allow_html=True)
 
@@ -281,36 +297,61 @@ def formatar_resposta(texto):
     
     return texto
 
-# --- ÁREA DE CHAT COM SCROLL ---
-with st.container():
-    # Aplicamos a classe CSS que define o scroll aqui
-    st.markdown('<div class="chat-history-container">', unsafe_allow_html=True)
-    
-    for message in st.session_state.messages:
-        if message["role"] == "user":
-            pergunta_limpa = message["content"]
-            pergunta_limpa = pergunta_limpa.replace('</div>', '')
-            pergunta_limpa = pergunta_limpa.replace('<div>', '')
-            pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
-            pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
-            pergunta_limpa = pergunta_limpa.strip()
-            
-            st.markdown(f"""
-            <div class="user-message">
-                <strong>👤 Você:</strong><br>{pergunta_limpa}
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            resposta_formatada = formatar_resposta(message["content"])
-            st.markdown(f"""
-            <div class="assistant-message">
-                <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-            </div>
-            """, unsafe_allow_html=True)
-            
-    st.markdown('</div>', unsafe_allow_html=True) # Fecha a div do container de scroll
+# ---------- CONTAINER DO CHAT COM SCROLL ----------
+chat_html = '<div class="chat-container" id="chat-container">'
 
-# --- INPUT E BOTÕES (FORA DO SCROLL) ---
+for message in st.session_state.messages:
+    if message["role"] == "user":
+        pergunta_limpa = message["content"]
+        pergunta_limpa = pergunta_limpa.replace('</div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<div>', '')
+        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
+        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
+        pergunta_limpa = pergunta_limpa.strip()
+        
+        chat_html += f"""
+        <div class="user-message">
+            <strong>👤 Você:</strong><br>{pergunta_limpa}
+        </div>
+        """
+    else:
+        resposta_formatada = formatar_resposta(message["content"])
+        chat_html += f"""
+        <div class="assistant-message">
+            <strong>🤖 Assistente:</strong><br>{resposta_formatada}
+        </div>
+        """
+
+chat_html += '</div>'
+
+# JavaScript para auto-scroll
+chat_html += """
+<script>
+function scrollToBottom() {
+    var container = document.getElementById('chat-container');
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+// Scroll quando a página carrega
+document.addEventListener('DOMContentLoaded', scrollToBottom);
+// Scroll quando novas mensagens são adicionadas
+setTimeout(scrollToBottom, 100);
+</script>
+"""
+
+st.markdown(chat_html, unsafe_allow_html=True)
+
+# ---------- INPUT FIXO ----------
+st.markdown('<div class="chat-input-container">', unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns([1, 4, 1])
+with col2:
+    if st.button("🗑️ Limpar Histórico", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+
+# Chat input
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
@@ -319,13 +360,6 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         
         pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
         pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
-        
-        # Renderiza a mensagem do usuário imediatamente
-        st.markdown(f"""
-        <div class="user-message">
-            <strong>👤 Você:</strong><br>{pergunta_limpa}
-        </div>
-        """, unsafe_allow_html=True)
         
         with st.spinner("Analisando..."):
             try:
@@ -368,25 +402,12 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 resposta = response.text
                 
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
-                resposta_formatada = formatar_resposta(resposta)
-                
-                # Renderiza a resposta do assistente imediatamente
-                st.markdown(f"""
-                <div class="assistant-message">
-                    <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Força um rerun para atualizar o scroll corretamente se necessário
-                st.rerun() 
+                st.rerun()
                 
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
+                st.rerun()
 
-col1, col2, col3 = st.columns([1, 4, 1])
-with col2:
-    if st.button("🗑️ Limpar Histórico", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
