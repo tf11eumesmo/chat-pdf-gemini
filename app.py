@@ -27,7 +27,6 @@ hr {
     visibility: hidden !important;
     pointer-events: none;
 }
-/* Fallback para outras versões ou seletores específicos */
 button[aria-label="Close sidebar"],
 button[kind="headerNoPadding"] {
     display: none !important;
@@ -75,29 +74,11 @@ button[kind="headerNoPadding"] {
 }
 
 /* BARRA DE SCROLL PERSONALIZADA */
-.chat-container::-webkit-scrollbar {
-    width: 8px;
-}
-
-.chat-container::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.chat-container::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-}
-
-.chat-container::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-
-/* Fallback para Firefox */
-.chat-container {
-    scrollbar-width: thin;
-    scrollbar-color: #888 #f1f1f1;
-}
+.chat-container::-webkit-scrollbar { width: 8px; }
+.chat-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+.chat-container::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+.chat-container::-webkit-scrollbar-thumb:hover { background: #555; }
+.chat-container { scrollbar-width: thin; scrollbar-color: #888 #f1f1f1; }
 
 /* CHAT MESSAGES */
 .user-message {
@@ -116,15 +97,16 @@ button[kind="headerNoPadding"] {
     margin: 10px 0;
 }
 
+/* ALTERNATIVA CORRETA — inline style como fallback garantido */
 .correct-answer {
-    background-color: #d4edda;
-    border-left: 4px solid #28a745;
-    padding: 8px 12px;
-    border-radius: 5px;
-    margin: 6px 0;
-    font-weight: 600;
-    color: #155724;
-    display: block;
+    background-color: #d4edda !important;
+    border-left: 4px solid #28a745 !important;
+    padding: 8px 12px !important;
+    border-radius: 5px !important;
+    margin: 6px 0 !important;
+    font-weight: 700 !important;
+    color: #155724 !important;
+    display: block !important;
 }
 
 .stSelectbox label { font-weight: 600; }
@@ -216,86 +198,117 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
 <div class="top-fixed">
-
 <div class="materia-info">
 <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
 <small>{st.session_state.caracteres_count:,} caracteres</small>
 </div>
-
-<div class="chat-title">
-💬 Chat de Questões
-</div>
-
+<div class="chat-title">💬 Chat de Questões</div>
 </div>
 """, unsafe_allow_html=True)
 
+
 def formatar_resposta(texto):
-    """Formata a resposta para diferentes tipos de questão"""
-    
-    texto = texto.replace('</div>', '')
-    texto = texto.replace('<div>', '')
-    texto = texto.replace('<br>', '\n')
+    """
+    Formata a resposta marcando a alternativa correta com fundo verde e ✅.
+    Suporta os padrões: **CORRETA**, *Correta*, CORRETA, ✅ CORRETA, (Correta), (CORRETA).
+    Usa inline style para garantir que o verde seja aplicado mesmo com sanitização do Streamlit.
+    """
+
+    # 1. Limpar tags HTML que possam ter vindo da resposta
     texto = re.sub(r'<[^>]+>', '', texto)
     texto = texto.strip()
-    
-    padroes_correta = [
-        (r'([A-E])\)\s*([^\n]*?)\s*\*\*CORRETA\*\*', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*\*Correta\*', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*CORRETA:', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*✅\s*CORRETA', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*\(Correta\)', r'<span class="correct-answer">\1) \2</span>'),
-        (r'([A-E])\)\s*([^\n]*?)\s*\(CORRETA\)', r'<span class="correct-answer">\1) \2</span>'),
-        (r'✅\s*([A-E])\)\s*([^\n]*)', r'<span class="correct-answer">✅ \1) \2</span>'),
-    ]
-    
-    for padrao, substituicao in padroes_correta:
-        texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
-    
-    padroes_vf = [
-        (r'(VERDADEIRO|V)\s*[-:]?\s*(CORRETO|CERTO|CORRETA)?\s*\*\*', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
-        (r'(FALSO|F)\s*[-:]?\s*(INCORRETO|ERRADO|ERRADA)?\s*\*\*', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
-        (r'✅\s*(VERDADEIRO|V)', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
-        (r'❌\s*(FALSO|F)', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
-    ]
-    
-    for padrao, substituicao in padroes_vf:
-        texto = re.sub(padrao, substituicao, texto, flags=re.IGNORECASE)
-    
-    texto = re.sub(
-        r'(\n|^)(\d+\.\s*[^\n]*?)\s*\*\*CORRETO\*\*',
-        r'\1<span class="correct-answer">✅ \2</span>',
-        texto,
-        flags=re.IGNORECASE
+
+    CORRETA_STYLE = (
+        'display:block;'
+        'background-color:#d4edda;'
+        'border-left:4px solid #28a745;'
+        'padding:8px 12px;'
+        'border-radius:5px;'
+        'margin:6px 0;'
+        'font-weight:700;'
+        'color:#155724;'
     )
-    
+    ERRADA_STYLE = 'color:#d32f2f;font-weight:bold;'
+
+    # 2. Padrões que sinalizam alternativa correta (flexíveis, case-insensitive)
+    #    Captura: letra, parêntese, espaço, texto da alternativa, marcação de correta
+    padroes_mc = [
+        # A) texto **CORRETA**  /  A) texto **Correta**
+        r'([A-E])\)\s*(.*?)\s*\*\*(CORRETA|Correta|correta)\*\*',
+        # A) texto *Correta*
+        r'([A-E])\)\s*(.*?)\s*\*(CORRETA|Correta|correta)\*',
+        # A) texto CORRETA  (palavra sozinha no final da linha)
+        r'([A-E])\)\s*(.*?)\s+(CORRETA|Correta)(?=\s|$)',
+        # A) texto ✅ CORRETA  ou  ✅ A) texto
+        r'([A-E])\)\s*(.*?)\s*✅\s*(?:CORRETA|Correta)?',
+        r'✅\s*([A-E])\)\s*(.*)',
+        # A) texto (Correta) / (CORRETA)
+        r'([A-E])\)\s*(.*?)\s*\((?:CORRETA|Correta|correta)\)',
+    ]
+
+    def substituir_mc(m):
+        """Recebe um match com grupos (letra, texto) e devolve HTML verde."""
+        letra = m.group(1)
+        texto_alt = m.group(2).strip()
+        # Remove asteriscos residuais do texto
+        texto_alt = texto_alt.replace('**', '').replace('*', '').strip()
+        return f'<span style="{CORRETA_STYLE}">✅ {letra}) {texto_alt}</span>'
+
+    for padrao in padroes_mc:
+        texto = re.sub(padrao, substituir_mc, texto, flags=re.IGNORECASE | re.MULTILINE)
+
+    # 3. Verdadeiro / Falso
     texto = re.sub(
-        r'(RESPOSTA|Resposta):\s*\*\*(.*?)\*\*',
-        r'<span class="correct-answer">✅ Resposta: \2</span>',
-        texto,
-        flags=re.IGNORECASE
+        r'✅\s*(VERDADEIRO|V\b)',
+        f'<span style="{CORRETA_STYLE}">✅ VERDADEIRO</span>',
+        texto, flags=re.IGNORECASE
     )
-    
-    texto = re.sub(r'(\n|^)([A-E])\)\s*', r'\1<strong>\2)</strong> ', texto, flags=re.IGNORECASE)
-    texto = re.sub(r'(\n|^)(V|v)\)\s*', r'\1<strong>V)</strong> ', texto)
-    texto = re.sub(r'(\n|^)(F|f)\)\s*', r'\1<strong>F)</strong> ', texto)
-    
+    texto = re.sub(
+        r'(VERDADEIRO|V\b)\s*[-–:]?\s*\*\*(CORRETO|CERTO|CORRETA)?\*\*',
+        f'<span style="{CORRETA_STYLE}">✅ VERDADEIRO</span>',
+        texto, flags=re.IGNORECASE
+    )
+    texto = re.sub(
+        r'❌\s*(FALSO|F\b)',
+        f'<span style="{ERRADA_STYLE}">❌ FALSO</span>',
+        texto, flags=re.IGNORECASE
+    )
+    texto = re.sub(
+        r'(FALSO|F\b)\s*[-–:]?\s*\*\*(INCORRETO|ERRADO|ERRADA)?\*\*',
+        f'<span style="{ERRADA_STYLE}">❌ FALSO</span>',
+        texto, flags=re.IGNORECASE
+    )
+
+    # 4. Enumeração  "1. item **CORRETO**"
+    texto = re.sub(
+        r'(\d+\.\s*)(.*?)\s*\*\*(CORRETO|CORRETA)\*\*',
+        lambda m: f'<span style="{CORRETA_STYLE}">✅ {m.group(1)}{m.group(2).strip()}</span>',
+        texto, flags=re.IGNORECASE | re.MULTILINE
+    )
+
+    # 5. Questão aberta  "Resposta: **texto**"
+    texto = re.sub(
+        r'(RESPOSTA|Resposta)\s*:\s*\*\*(.*?)\*\*',
+        lambda m: f'<span style="{CORRETA_STYLE}">✅ Resposta: {m.group(2).strip()}</span>',
+        texto, flags=re.IGNORECASE
+    )
+
+    # 6. Negrito residual nas demais alternativas  A) texto
+    texto = re.sub(r'(?<!\w)([A-E])\)\s*', r'<strong>\1)</strong> ', texto)
+
+    # 7. Remover ** restantes e converter quebras de linha
     texto = texto.replace('**', '')
     texto = texto.replace('\n', '<br>')
-    
+
     return texto
 
-# ---------- CHAT COM CONTAINER DE ROLAGEM ----------
+
+# ---------- EXIBIÇÃO DO HISTÓRICO ----------
 st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
 for message in st.session_state.messages:
     if message["role"] == "user":
-        pergunta_limpa = message["content"]
-        pergunta_limpa = pergunta_limpa.replace('</div>', '')
-        pergunta_limpa = pergunta_limpa.replace('<div>', '')
-        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa)
-        pergunta_limpa = pergunta_limpa.strip()
-        
+        pergunta_limpa = re.sub(r'<[^>]+>', '', message["content"]).strip()
         st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
@@ -309,17 +322,16 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True)  # Fecha .chat-container
+st.markdown('</div>', unsafe_allow_html=True)
 
+# ---------- INPUT ----------
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
-        
+        pergunta_limpa = re.sub(r'<[^>]+>', '', prompt).strip()
         st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
@@ -334,19 +346,20 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
 Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
 INSTRUÇÕES OBRIGATÓRIAS:
-1. Responda APENAS com base no conteúdo do material fornecido abaixo
-2. RETORNE A QUESTÃO COMPLETA (pergunta + TODAS as alternativas)
-3. Indique qual alternativa está correta usando **CORRETA** após a alternativa
-4. NÃO adicione justificativas, explicações extras ou comentários
+1. Responda APENAS com base no conteúdo do material fornecido abaixo.
+2. RETORNE A QUESTÃO COMPLETA (pergunta + TODAS as alternativas).
+3. Indique qual alternativa está correta escrevendo exatamente " **CORRETA**" LOGO APÓS o texto da alternativa correta, sem quebra de linha entre eles.
+4. NÃO adicione justificativas, explicações extras ou comentários.
 5. Formato EXATO para múltipla escolha:
-   - Retorne a pergunta completa
-   - Retorne TODAS as alternativas (A, B, C, D, E)
-   - Após a correta, escreva: " **CORRETA**"
-   - Exemplo: "D) 800 metros, devido ao risco... **CORRETA**"
-6. Para V/F: "✅ VERDADEIRO **CORRETO**" ou "❌ FALSO **INCORRETO**"
-7. Para enumeração: "1. Item **CORRETO**"
-8. Para questões abertas: "Resposta: **resposta correta**"
-9. Se não encontrar: "Não encontrei essa informação no material"
+   Pergunta completa aqui?
+   A) texto da alternativa A
+   B) texto da alternativa B
+   C) texto da alternativa C
+   D) texto da alternativa D **CORRETA**
+   E) texto da alternativa E
+6. Para V/F: na mesma linha escreva "✅ VERDADEIRO **CORRETO**" ou "❌ FALSO **INCORRETO**"
+7. Para questões abertas: "Resposta: **resposta correta**"
+8. Se não encontrar: "Não encontrei essa informação no material"
 
 MATERIAL DE ESTUDO:
 {texto_limitado}
@@ -354,7 +367,7 @@ MATERIAL DE ESTUDO:
 PERGUNTA DO ALUNO:
 {prompt}
 
-RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
+RESPOSTA:
 """
                 
                 response = co.chat(
@@ -379,7 +392,7 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
     
-    st.rerun()  # Recarrega para manter a rolagem consistente
+    st.rerun()
 
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
