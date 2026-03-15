@@ -382,20 +382,30 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
             try:
                 texto_limitado = st.session_state.pdf_content[:100000]
 
-                full_prompt = f"""Você é um assistente especializado em {st.session_state.materia_nome}.
+                full_prompt = f"""VOCÊ É UM ASSISTENTE ESPECIALISTA EM {st.session_state.materia_nome.upper()}.
 
-INSTRUÇÃO CRÍTICA - LEIA COM ATENÇÃO:
-O usuário enviou uma LISTA DE QUESTÕES que já estão prontas e precisam ser respondidas.
-Você NÃO deve criar novas questões, NÃO deve reorganizar a ordem, NÃO deve modificar o texto das questões e NÃO deve adicionar títulos como "QUIZ 01" ou "QUIZ 02".
+⚠️ ATENÇÃO: EXISTEM DOIS TIPOS DE TEXTO NESTE PROMPT:
+1. "MATERIAL DE ESTUDO" → É o conteúdo do PDF para CONSULTA (use apenas como referência)
+2. "QUESTÕES DO USUÁRIO" → São as perguntas que você DEVE responder
 
-SUA ÚNICA TAREFA:
-1. Para CADA questão enviada pelo usuário, identifique a alternativa correta com base no material
-2. Responda EXATAMENTE na MESMA ORDEM em que as questões foram enviadas
-3. Mantenha o TEXTO ORIGINAL da questão (enunciado e alternativas) SEM ALTERAÇÕES
-4. Adicione [CORRETA] APENAS ao final da alternativa correta
-5. NÃO adicione explicações, comentários ou textos extras
+REGRAS ABSOLUTAS:
+- Você DEVE responder APENAS as questões listadas em "QUESTÕES DO USUÁRIO"
+- Você NÃO DEVE criar novas questões baseadas no "MATERIAL DE ESTUDO"
+- Você NÃO DEVE adicionar questões que estão no material mas não foram perguntadas
+- Você NÃO DEVE reorganizar, renumerar ou renomear as questões
+- Você NÃO DEVE adicionar títulos como "QUIZ", "RESPOSTAS" ou separadores
+- Você DEVE manter o texto EXATO de cada questão (enunciado e alternativas)
 
-EXEMPLO DE ENTRADA DO USUÁRIO:
+INSTRUÇÃO PASSO-A-PASSO:
+1. Leia a primeira questão em "QUESTÕES DO USUÁRIO"
+2. Consulte o "MATERIAL DE ESTUDO" para encontrar a resposta correta
+3. Escreva a questão exatamente como foi fornecida
+4. Adicione [CORRETA] ao final da alternativa certa
+5. Repita para a próxima questão, mantendo a ordem original
+6. Quando terminar todas as questões, PARE - não adicione mais nada
+
+EXEMPLO:
+Se o usuário perguntar:
 Questão 1: Qual é a capital do Brasil?
 A) São Paulo
 B) Rio de Janeiro
@@ -403,7 +413,7 @@ C) Salvador
 D) Brasília
 E) Manaus
 
-EXEMPLO DE SAÍDA CORRETA:
+Você deve responder:
 Questão 1: Qual é a capital do Brasil?
 A) São Paulo
 B) Rio de Janeiro
@@ -411,28 +421,19 @@ C) Salvador
 D) Brasília [CORRETA]
 E) Manaus
 
-REGRAS DE OURO:
-- NÃO crie novas questões
-- NÃO remova questões
-- NÃO mude a ordem das questões
-- NÃO altere o texto das questões
-- NÃO adicione títulos como "QUIZ" ou "RESPOSTAS"
-- NÃO adicione separadores como "---"
-- Apenas repita cada questão com [CORRETA] na alternativa certa
-
-Se não encontrar a informação para alguma questão, escreva APENAS: "Não encontrei informação para esta questão no material." e mantenha a questão.
+SE HOUVER MÚLTIPLAS QUESTÕES, faça a mesma coisa para cada uma, na mesma ordem.
 
 ════════════════════════════════════════
-MATERIAL DE ESTUDO:
+MATERIAL DE ESTUDO (use apenas para consulta):
 {texto_limitado}
 
 ════════════════════════════════════════
-QUESTÕES DO USUÁRIO (responda na MESMA ORDEM, SEM CRIAR NOVAS):
+QUESTÕES DO USUÁRIO (estas são as ÚNICAS que você deve responder):
 
 {prompt}
 
 ════════════════════════════════════════
-RESPOSTA (apenas as questões do usuário, na mesma ordem, com [CORRETA] na alternativa certa):
+RESPOSTA (apenas as questões acima, na mesma ordem, com [CORRETA] na alternativa certa):
 """
 
                 response = co.chat(
@@ -440,7 +441,7 @@ RESPOSTA (apenas as questões do usuário, na mesma ordem, com [CORRETA] na alte
                     message=full_prompt,
                     temperature=0.1,
                     max_tokens=4096,
-                    preamble="Você é um assistente que APENAS responde às questões enviadas pelo usuário, na mesma ordem, sem criar novas questões ou modificar o texto original."
+                    preamble="Você é um assistente que APENAS responde às questões enviadas pelo usuário. NUNCA crie novas questões baseadas no material de estudo."
                 )
                 resposta = response.text
 
