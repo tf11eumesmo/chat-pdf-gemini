@@ -382,58 +382,52 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
             try:
                 texto_limitado = st.session_state.pdf_content[:100000]
 
-                full_prompt = f"""VOCÊ É UM ASSISTENTE ESPECIALISTA EM {st.session_state.materia_nome.upper()}.
+                full_prompt = f"""IMPORTANTE: O MATERIAL DE ESTUDO ABAIXO CONTÉM QUESTIONÁRIOS/QUIZZES. IGNORE-OS COMPLETAMENTE.
 
-⚠️ ATENÇÃO: EXISTEM DOIS TIPOS DE TEXTO NESTE PROMPT:
-1. "MATERIAL DE ESTUDO" → É o conteúdo do PDF para CONSULTA (use apenas como referência)
-2. "QUESTÕES DO USUÁRIO" → São as perguntas que você DEVE responder
+Você é um assistente especializado em {st.session_state.materia_nome}.
+
+INSTRUÇÃO CRÍTICA - LEIA COM ATENÇÃO:
+O usuário enviou {len(prompt.split('Questão')) - 1} questões específicas para serem respondidas.
+O material de estudo contém seus próprios quizzes, mas você DEVE IGNORAR esses quizzes do material.
+
+SUA ÚNICA TAREFA:
+1. IGNORE completamente qualquer questão, quiz ou questionário que exista no MATERIAL DE ESTUDO
+2. Foque APENAS nas questões listadas em "QUESTÕES DO USUÁRIO" abaixo
+3. Para CADA questão do usuário, identifique a alternativa correta com base no material
+4. Responda EXATAMENTE na MESMA ORDEM em que foram enviadas
+5. Mantenha o TEXTO ORIGINAL da questão (enunciado e alternativas) SEM ALTERAÇÕES
+6. Adicione [CORRETA] APENAS ao final da alternativa correta
+7. NÃO adicione títulos como "QUIZ", "Questionário" ou separadores
 
 REGRAS ABSOLUTAS:
-- Você DEVE responder APENAS as questões listadas em "QUESTÕES DO USUÁRIO"
-- Você NÃO DEVE criar novas questões baseadas no "MATERIAL DE ESTUDO"
-- Você NÃO DEVE adicionar questões que estão no material mas não foram perguntadas
-- Você NÃO DEVE reorganizar, renumerar ou renomear as questões
-- Você NÃO DEVE adicionar títulos como "QUIZ", "RESPOSTAS" ou separadores
-- Você DEVE manter o texto EXATO de cada questão (enunciado e alternativas)
+- NÃO crie novas questões baseadas no material
+- NÃO responda aos quizzes que estão no material
+- NÃO reorganize as questões
+- NÃO adicione explicações
+- Apenas repita cada questão com [CORRETA] na alternativa certa
 
-INSTRUÇÃO PASSO-A-PASSO:
-1. Leia a primeira questão em "QUESTÕES DO USUÁRIO"
-2. Consulte o "MATERIAL DE ESTUDO" para encontrar a resposta correta
-3. Escreva a questão exatamente como foi fornecida
-4. Adicione [CORRETA] ao final da alternativa certa
-5. Repita para a próxima questão, mantendo a ordem original
-6. Quando terminar todas as questões, PARE - não adicione mais nada
+Exemplo do que NÃO fazer (errado):
+QUIZ 01
+1. Pergunta do material... (NÃO FAÇA ISSO)
 
-EXEMPLO:
-Se o usuário perguntar:
-Questão 1: Qual é a capital do Brasil?
-A) São Paulo
-B) Rio de Janeiro
-C) Salvador
-D) Brasília
-E) Manaus
-
-Você deve responder:
-Questão 1: Qual é a capital do Brasil?
-A) São Paulo
-B) Rio de Janeiro
-C) Salvador
-D) Brasília [CORRETA]
-E) Manaus
-
-SE HOUVER MÚLTIPLAS QUESTÕES, faça a mesma coisa para cada uma, na mesma ordem.
+Exemplo do que fazer (correto):
+Questão 1: [texto da questão do usuário]
+A) [alternativa]
+B) [alternativa]
+C) [alternativa correta] [CORRETA]
+D) [alternativa]
 
 ════════════════════════════════════════
-MATERIAL DE ESTUDO (use apenas para consulta):
+MATERIAL DE ESTUDO (use apenas para consultar respostas, IGNORE os quizzes dele):
 {texto_limitado}
 
 ════════════════════════════════════════
-QUESTÕES DO USUÁRIO (estas são as ÚNICAS que você deve responder):
+QUESTÕES DO USUÁRIO (estas são as ÚNICAS que você deve responder, IGNORE qualquer quiz do material):
 
 {prompt}
 
 ════════════════════════════════════════
-RESPOSTA (apenas as questões acima, na mesma ordem, com [CORRETA] na alternativa certa):
+RESPOSTA (apenas as questões do usuário acima, na mesma ordem, com [CORRETA] na alternativa certa):
 """
 
                 response = co.chat(
@@ -441,7 +435,7 @@ RESPOSTA (apenas as questões acima, na mesma ordem, com [CORRETA] na alternativ
                     message=full_prompt,
                     temperature=0.1,
                     max_tokens=4096,
-                    preamble="Você é um assistente que APENAS responde às questões enviadas pelo usuário. NUNCA crie novas questões baseadas no material de estudo."
+                    preamble="VOCÊ DEVE IGNORAR COMPLETAMENTE OS QUIZZES DO MATERIAL. Responda APENAS às questões enviadas pelo usuário."
                 )
                 resposta = response.text
 
