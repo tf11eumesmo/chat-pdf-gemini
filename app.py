@@ -9,18 +9,29 @@ st.set_page_config(page_title="Chat com PDF", page_icon="📚", layout="wide")
 # ---------- CSS ----------
 st.markdown("""
 <style>
+
 /* OCULTAR HEADER PADRÃO */
 header {visibility: hidden;}
 
 /* REMOVER LINHAS DIVISÓRIAS (HR) */
-hr { display: none !important; }
+hr {
+    display: none !important;
+}
 
-.block-container { padding-top: 150px; }
+.block-container {
+    padding-top: 150px;
+    padding-bottom: 50px;
+}
 
 /* BOTÃO DE FECHAR SIDEBAR (OCULTAR) */
-[data-testid="stSidebarCloseButton"] { visibility: hidden !important; pointer-events: none; }
-
-button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: none !important; }
+[data-testid="stSidebarCloseButton"] {
+    visibility: hidden !important;
+    pointer-events: none;
+}
+button[aria-label="Close sidebar"],
+button[kind="headerNoPadding"] {
+    display: none !important;
+}
 
 /* TOPO FIXO */
 .top-fixed {
@@ -32,10 +43,8 @@ button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: no
     z-index: 999;
     border-bottom: 1px solid #ddd;
     padding: 15px 40px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
-
-.main-title { font-size: 1.35rem; font-weight: 600; }
-.chat-title { font-size: 0.95rem; font-weight: 600; margin-top: 8px; text-align: center; }
 
 .materia-info {
     background-color: #d4edda;
@@ -46,15 +55,43 @@ button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: no
     color: #155724;
 }
 
-/* CHAT */
-.chat-container {
-    max-height: 400px;  /* Altura máxima para a rolagem */
-    overflow-y: auto;   /* Permite rolagem vertical */
-    border: 1px solid #ddd; /* Opcional: adicionar borda */
-    border-radius: 5px; /* Opcional: bordas arredondadas */
-    padding: 10px; /* Espaçamento interno */
+.chat-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 8px;
+    text-align: center;
 }
 
+/* CONTAINER DO CHAT COM SCROLL */
+#chat-container {
+    height: 550px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 15px;
+    background-color: #fafafa;
+    margin-bottom: 20px;
+}
+
+#chat-container::-webkit-scrollbar {
+    width: 10px;
+}
+
+#chat-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 5px;
+}
+
+#chat-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+}
+
+#chat-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* MENSAGENS */
 .user-message {
     background-color: #e3f2fd;
     border-left: 4px solid #2196f3;
@@ -83,8 +120,31 @@ button[aria-label="Close sidebar"], button[kind="headerNoPadding"] { display: no
 }
 
 .stSelectbox label { font-weight: 600; }
+
+/* INPUT FIXO NA PARTE INFERIOR */
+.chat-input-container {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 10px 0;
+    border-top: 1px solid #ddd;
+}
 </style>
 """, unsafe_allow_html=True)
+
+# ---------- JAVASCRIPT PARA AUTO-SCROLL ----------
+def auto_scroll():
+    st.markdown("""
+    <script>
+        function scrollToBottom() {
+            var chatContainer = document.getElementById('chat-container');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }
+        scrollToBottom();
+    </script>
+    """, unsafe_allow_html=True)
 
 with st.sidebar:
     st.header("📖 Escolha a matéria:")
@@ -136,6 +196,8 @@ if "materia_nome" not in st.session_state:
     st.session_state.materia_nome = ""
 if "caracteres_count" not in st.session_state:
     st.session_state.caracteres_count = 0
+if "scroll_trigger" not in st.session_state:
+    st.session_state.scroll_trigger = 0
 
 def extract_pdf_text(pdf_path):
     try:
@@ -167,6 +229,7 @@ if selected_pdf and selected_pdf != st.session_state.current_pdf:
         st.session_state.materia_nome = selected_materia
         st.session_state.caracteres_count = len(texto)
         st.session_state.messages = []
+        st.session_state.scroll_trigger += 1
 
 # ---------- TOPO FIXO ----------
 st.markdown(f"""
@@ -175,9 +238,7 @@ st.markdown(f"""
 <strong>📚 Matéria Atual:</strong> {st.session_state.materia_nome} • 
 <small>{st.session_state.caracteres_count:,} caracteres</small>
 </div>
-<div class="chat-title">
-💬 Chat de Questões
-</div>
+<div class="chat-title">💬 Chat de Questões</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -236,8 +297,8 @@ def formatar_resposta(texto):
     
     return texto
 
-# ---------- CHAT AREA ----------
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+# ---------- CONTAINER DO CHAT COM SCROLL ----------
+st.markdown('<div id="chat-container">', unsafe_allow_html=True)
 
 for message in st.session_state.messages:
     if message["role"] == "user":
@@ -263,20 +324,19 @@ for message in st.session_state.messages:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
+# Auto-scroll após carregar mensagens
+auto_scroll()
+
+# ---------- INPUT DO CHAT ----------
 if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
     if not st.session_state.pdf_content:
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.scroll_trigger += 1
         
         pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
         pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
-        
-        st.markdown(f"""
-        <div class="user-message">
-            <strong>👤 Você:</strong><br>{pergunta_limpa}
-        </div>
-        """, unsafe_allow_html=True)
         
         with st.spinner("Analisando..."):
             try:
@@ -319,20 +379,20 @@ RESPOSTA (questão completa + alternativa correta marcada, SEM justificativa):
                 resposta = response.text
                 
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
-                resposta_formatada = formatar_resposta(resposta)
-                st.markdown(f"""
-                <div class="assistant-message">
-                    <strong>🤖 Assistente:</strong><br>{resposta_formatada}
-                </div>
-                """, unsafe_allow_html=True)
+                st.session_state.scroll_trigger += 1
+                
+                st.rerun()
                 
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
+                st.rerun()
 
+# ---------- BOTÃO LIMPAR ----------
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
     if st.button("🗑️ Limpar Histórico", use_container_width=True):
         st.session_state.messages = []
+        st.session_state.scroll_trigger += 1
         st.rerun()
