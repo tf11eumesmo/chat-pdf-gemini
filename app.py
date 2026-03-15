@@ -241,88 +241,63 @@ def limpar_html(texto):
     return texto.strip()
 
 
-def limpar_marcadores(texto):
-    """Remove todos os marcadores internos e resíduos de formatação de uma string."""
-    texto = texto.replace('>>>CORRETA<<<', '')
-    texto = texto.replace('##CORRETA##', '')
-    texto = texto.replace('✅', '')
-    texto = texto.replace('**', '')
-    texto = texto.replace('*', '')
-    return texto.strip()
-
-
 def formatar_resposta(texto):
     """
-    Formata a resposta do modelo para realçar alternativas corretas com fundo verde.
-    O modelo é instruído a marcar a linha correta com >>>CORRETA<<< no início.
-    Aqui detectamos esse marcador e aplicamos o estilo verde.
+    Formata a resposta do modelo linha a linha.
+    Detecta qualquer variante de marcador de 'correta', remove tudo do texto visível,
+    e aplica o estilo verde apenas na linha correta.
     """
 
-    # 1. Remover HTML residual
-    texto = re.sub(r'<[^>]+>', '', texto)
-    texto = texto.strip()
+    # Regex para DETECTAR se uma linha contém marcador de correta
+    re_detectar = re.compile(
+        r'\[CORRETA\]|>>>CORRETA<<<|##CORRETA##'
+        r'|\*{1,2}CORRETA\*{1,2}|\*{1,2}CORRETO\*{1,2}'
+        r'|\(CORRETA\)|\(CORRETO\)'
+        r'|\bCORRETA\b|\bCorreta\b|\bCORRETO\b|\bCorreto\b'
+        r'|✅\s*CORRETA',
+        re.IGNORECASE
+    )
 
-    # 2. Normalizar TODOS os possíveis formatos de marcação para >>>CORRETA<<<
-    #    Ordem importa: do mais específico para o mais genérico
-    normalizacoes = [
-        # >>>CORRETA<<< já no formato certo (idempotente)
-        (r'>>>CORRETA<<<', '>>>CORRETA<<<'),
-        # [CORRETA] no início ou fim
-        (r'\[CORRETA\]', '>>>CORRETA<<<'),
-        # **CORRETA** ou *CORRETA*
-        (r'\*{1,2}CORRETA\*{1,2}', '>>>CORRETA<<<'),
-        (r'\*{1,2}Correta\*{1,2}', '>>>CORRETA<<<'),
-        # ✅ CORRETA ou ✅CORRETA
-        (r'✅\s*CORRETA', '>>>CORRETA<<<'),
-        (r'✅\s*Correta', '>>>CORRETA<<<'),
-        # (CORRETA) ou (Correta)
-        (r'\(CORRETA\)', '>>>CORRETA<<<'),
-        (r'\(Correta\)', '>>>CORRETA<<<'),
-        # CORRETA: ou - CORRETA ou – CORRETA
-        (r'[-–:]\s*CORRETA\b', '>>>CORRETA<<<'),
-        (r'[-–:]\s*Correta\b', '>>>CORRETA<<<'),
-        # CORRETA sozinha como palavra (deve vir por último pois é mais genérico)
-        (r'\bCORRETA\b', '>>>CORRETA<<<'),
-        (r'\bCorreta\b', '>>>CORRETA<<<'),
-        # CORRETO (para enumerações)
-        (r'\*{1,2}CORRETO\*{1,2}', '>>>CORRETA<<<'),
-        (r'\bCORRETO\b', '>>>CORRETA<<<'),
-        (r'\bCorreto\b', '>>>CORRETA<<<'),
-    ]
-    for padrao, subst in normalizacoes:
-        texto = re.sub(padrao, subst, texto, flags=re.IGNORECASE)
+    def limpar_linha(s):
+        """Remove todos os marcadores e resíduos de formatação do texto visível."""
+        s = re_detectar.sub('', s)
+        s = re.sub(r'\*{1,2}([^*\n]+)\*{1,2}', r'\1', s)  # **bold** → bold
+        s = re.sub(r'[<>]{3}', '', s)   # >>> ou <<<
+        s = s.replace('##', '').replace('✅', '').replace('❌', '')
+        return s.strip()
 
-    # 3. Processar linha a linha
+    # Remover HTML residual
+    texto = re.sub(r'<[^>]+>', '', texto).strip()
+
     linhas = texto.split('\n')
     resultado_html = []
 
-    padrao_alternativa = re.compile(r'^\s*([A-Ea-e])\s*[)\.\-]\s*(.*)', re.DOTALL)
-    padrao_enum        = re.compile(r'^\s*(\d+)\s*[)\.\-]\s*(.*)', re.DOTALL)
-    padrao_vf          = re.compile(r'^\s*(VERDADEIRO|FALSO|V|F)\s*[)\.]?\s*(.*)', re.IGNORECASE | re.DOTALL)
+    re_alt  = re.compile(r'^([A-Ea-e])\s*[)\.\-]\s*(.+)', re.DOTALL)
+    re_enum = re.compile(r'^(\d+)\s*[)\.\-]\s*(.+)', re.DOTALL)
+    re_vf   = re.compile(r'^(VERDADEIRO|FALSO|V|F)\b(.*)', re.IGNORECASE | re.DOTALL)
 
     for linha in linhas:
         s = linha.strip()
-
         if not s:
             resultado_html.append('<br>')
             continue
 
-        # Detectar marcador de correta
-        eh_correta = '>>>CORRETA<<<' in s
+        # 1. Detectar ANTES de qualquer limpeza
+        eh_correta = bool(re_detectar.search(s))
 
-        # Remover o marcador para processar o conteúdo limpo
-        s_limpo = s.replace('>>>CORRETA<<<', '').strip()
-        # Remover asteriscos de negrito markdown
-        s_limpo = re.sub(r'\*{1,2}(.*?)\*{1,2}', r'\1', s_limpo)
-        s_limpo = s_limpo.replace('✅', '').strip()
+        # 2. Limpar para exibição
+        s_vis = limpar_linha(s)
+        if not s_vis:
+            continue
 
-        m_alt  = padrao_alternativa.match(s_limpo)
-        m_enum = padrao_enum.match(s_limpo)
-        m_vf   = padrao_vf.match(s_limpo)
+        # 3. Classificar e formatar
+        m_alt  = re_alt.match(s_vis)
+        m_enum = re_enum.match(s_vis)
+        m_vf   = re_vf.match(s_vis)
 
         if m_alt:
             letra    = m_alt.group(1).upper()
-            conteudo = limpar_marcadores(m_alt.group(2))
+            conteudo = m_alt.group(2).strip()
             if eh_correta:
                 resultado_html.append(
                     f'<span class="correct-answer">✅ {letra}) {conteudo}</span>'
@@ -332,24 +307,24 @@ def formatar_resposta(texto):
                     f'<span class="wrong-answer"><strong>{letra})</strong> {conteudo}</span>'
                 )
 
-        elif m_vf and not m_alt:
-            vf_token = m_vf.group(1).upper()
-            resto    = limpar_marcadores(m_vf.group(2))
-            eh_v     = vf_token in ('V', 'VERDADEIRO')
-            label    = 'VERDADEIRO' if eh_v else 'FALSO'
-            icone    = '✅' if eh_v else '❌'
+        elif m_vf:
+            token  = m_vf.group(1).upper()
+            resto  = m_vf.group(2).strip()
+            eh_v   = token in ('V', 'VERDADEIRO')
+            label  = 'VERDADEIRO' if eh_v else 'FALSO'
+            icone  = '✅' if eh_v else '❌'
             if eh_correta:
                 resultado_html.append(
-                    f'<span class="correct-answer">{icone} {label} {resto}</span>'
+                    f'<span class="correct-answer">{icone} {label} {(" — " + resto) if resto else ""}</span>'
                 )
             else:
                 resultado_html.append(
-                    f'<span class="wrong-answer"><strong>{icone} {label}</strong> {resto}</span>'
+                    f'<span class="wrong-answer"><strong>{icone} {label}</strong>{(" — " + resto) if resto else ""}</span>'
                 )
 
-        elif m_enum and not m_alt:
+        elif m_enum:
             num      = m_enum.group(1)
-            conteudo = limpar_marcadores(m_enum.group(2))
+            conteudo = m_enum.group(2).strip()
             if eh_correta:
                 resultado_html.append(
                     f'<span class="correct-answer">✅ {num}. {conteudo}</span>'
@@ -360,14 +335,10 @@ def formatar_resposta(texto):
                 )
 
         else:
-            # Linha genérica: enunciado, cabeçalho de questão, etc.
-            conteudo = limpar_marcadores(s_limpo)
             if eh_correta:
-                resultado_html.append(
-                    f'<span class="correct-answer">✅ {conteudo}</span>'
-                )
+                resultado_html.append(f'<span class="correct-answer">✅ {s_vis}</span>')
             else:
-                resultado_html.append(conteudo)
+                resultado_html.append(s_vis)
 
     return '\n'.join(resultado_html)
 
