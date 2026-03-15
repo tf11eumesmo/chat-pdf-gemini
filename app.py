@@ -27,7 +27,6 @@ hr {
     visibility: hidden !important;
     pointer-events: none;
 }
-/* Fallback para outras versões ou seletores específicos */
 button[aria-label="Close sidebar"],
 button[kind="headerNoPadding"] {
     display: none !important;
@@ -125,6 +124,12 @@ button[kind="headerNoPadding"] {
     font-weight: 600;
     color: #155724;
     display: block;
+}
+
+.wrong-answer {
+    display: block;
+    padding: 2px 0;
+    margin: 2px 0;
 }
 
 .stSelectbox label { font-weight: 600; }
@@ -229,143 +234,150 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-def formatar_resposta(texto):
-    """Formata a resposta para diferentes tipos de questão"""
-    
-    # Limpeza inicial
-    texto = texto.replace('</div>', '').replace('<div>', '').replace('<br>', '\n')
+
+def limpar_html(texto):
+    """Remove qualquer HTML que possa vir da entrada do usuário."""
     texto = re.sub(r'<[^>]+>', '', texto)
+    return texto.strip()
+
+
+def formatar_resposta(texto):
+    """
+    Formata a resposta do modelo para realçar alternativas corretas com fundo verde.
+    Estratégia:
+      1. Normalizar o texto (remover HTML, tratar markdown).
+      2. Processar linha a linha para identificar alternativas corretas.
+      3. Emitir HTML seguro.
+    """
+
+    # --- 1. Limpar HTML e normalização básica ---
+    texto = re.sub(r'<[^>]+>', '', texto)   # remove qualquer HTML residual
     texto = texto.strip()
-    
-    # Função para processar blocos de questões
-    def processar_bloco_questao(bloco):
-        # Separar linhas
-        linhas = bloco.split('\n')
-        linhas_processadas = []
-        
-        # Primeiro, identificar se é uma questão de múltipla escolha
-        alternativas = []
-        for linha in linhas:
-            # Procurar alternativas (A), B), C), etc)
-            match_alt = re.match(r'^\s*([A-E])[\)\.]\s*(.*?)(?:\s*\*\*CORRETA\*\*|\s*CORRETA\s*|\s*✅)?\s*$', linha, re.IGNORECASE)
-            if match_alt:
-                letra = match_alt.group(1).upper()
-                conteudo = match_alt.group(2).strip()
-                # Verificar se contém indicação de correta
-                if re.search(r'CORRETA|✅', linha, re.IGNORECASE):
-                    alternativas.append((letra, conteudo, True))
-                else:
-                    alternativas.append((letra, conteudo, False))
+
+    # Normalizar marcadores de correto vindos do modelo (vários formatos possíveis)
+    # Padroniza tudo para o token ##CORRETA## ao final da linha
+    normalizacoes = [
+        # **CORRETA** ou *CORRETA* ou CORRETA (com ou sem asteriscos/espaços)
+        (r'\*{1,2}CORRETA\*{1,2}', '##CORRETA##'),
+        (r'\*{1,2}Correta\*{1,2}', '##CORRETA##'),
+        (r'\bCORRETA\b', '##CORRETA##'),
+        (r'\bCorreta\b', '##CORRETA##'),
+        # ✅ isolado perto de alternativa
+        (r'✅\s*CORRETA', '##CORRETA##'),
+        (r'✅\s*Correta', '##CORRETA##'),
+        # (Correta) ou (CORRETA)
+        (r'\(CORRETA\)', '##CORRETA##'),
+        (r'\(Correta\)', '##CORRETA##'),
+        # — CORRETA ou : CORRETA
+        (r'[-–:]\s*CORRETA', '##CORRETA##'),
+        (r'[-–:]\s*Correta', '##CORRETA##'),
+        # RESPOSTA CORRETA:
+        (r'RESPOSTA\s*CORRETA\s*:', '##CORRETA##'),
+        # **CORRETO** para enumeração
+        (r'\*{1,2}CORRETO\*{1,2}', '##CORRETA##'),
+        (r'\bCORRETO\b', '##CORRETA##'),
+    ]
+    for padrao, subst in normalizacoes:
+        texto = re.sub(padrao, subst, texto, flags=re.IGNORECASE)
+
+    # --- 2. Processar linha a linha ---
+    linhas = texto.split('\n')
+    resultado_html = []
+
+    # Padrão de alternativa: A) ou A. ou (A) no início da linha (com possível espaço/bold)
+    padrao_alternativa = re.compile(
+        r'^(\s*\*{0,2})([A-Ea-e])[)\.](\*{0,2})\s*(.*)', re.DOTALL
+    )
+    # Padrão de V/F
+    padrao_vf = re.compile(r'^(\s*)(VERDADEIRO|FALSO|V|F)[)\.]?\s*(.*)', re.IGNORECASE | re.DOTALL)
+    # Padrão de enumeração: 1. texto
+    padrao_enum = re.compile(r'^(\s*)(\d+)[)\.]\s*(.*)', re.DOTALL)
+
+    for linha in linhas:
+        linha_stripped = linha.strip()
+
+        if not linha_stripped:
+            resultado_html.append('<br>')
+            continue
+
+        # Remove ** soltos (negrito markdown) mas guarda o conteúdo
+        linha_limpa = linha_stripped.replace('**', '').replace('*', '')
+
+        # Verifica se a linha contém o marcador de correta
+        eh_correta = '##CORRETA##' in linha_limpa
+        linha_limpa = linha_limpa.replace('##CORRETA##', '').strip()
+        # Remove ✅ residual para recolocar de forma controlada
+        linha_limpa = linha_limpa.replace('✅', '').strip()
+
+        # Tenta casar com padrão de alternativa A) B) etc.
+        m_alt = padrao_alternativa.match(linha_stripped.replace('**', ''))
+        m_vf = padrao_vf.match(linha_limpa)
+        m_enum = padrao_enum.match(linha_limpa)
+
+        if m_alt:
+            letra = m_alt.group(2).upper()
+            conteudo = m_alt.group(4).replace('##CORRETA##', '').replace('✅', '').replace('**', '').strip()
+            if eh_correta:
+                resultado_html.append(
+                    f'<span class="correct-answer">✅ {letra}) {conteudo}</span>'
+                )
             else:
-                linhas_processadas.append(linha)
-        
-        # Se encontrou alternativas, processar
-        if alternativas:
-            resultado = []
-            # Adicionar linhas não-alternativas
-            resultado.extend(linhas_processadas)
-            
-            # Adicionar alternativas formatadas
-            for letra, conteudo, is_correta in alternativas:
-                if is_correta:
-                    resultado.append(f'<span class="correct-answer">✅ {letra}) {conteudo}</span>')
+                resultado_html.append(
+                    f'<span class="wrong-answer"><strong>{letra})</strong> {conteudo}</span>'
+                )
+
+        elif m_vf and not m_alt:
+            vf_token = m_vf.group(2).upper()
+            resto = m_vf.group(3).replace('##CORRETA##', '').replace('✅', '').replace('**', '').strip()
+            eh_verdadeiro = vf_token in ('V', 'VERDADEIRO')
+            if eh_correta or eh_verdadeiro:
+                icone = '✅' if eh_verdadeiro else '❌'
+                label = 'VERDADEIRO' if eh_verdadeiro else 'FALSO'
+                if eh_correta:
+                    resultado_html.append(
+                        f'<span class="correct-answer">{icone} {label} {resto}</span>'
+                    )
                 else:
-                    resultado.append(f'<strong>{letra})</strong> {conteudo}')
-            
-            return '\n'.join(resultado)
-        
-        return bloco
-    
-    # Dividir o texto em blocos (questões separadas)
-    # Procurar padrões como "Questão", números, etc
-    blocos = re.split(r'(\n\d+[\.\)]\s+|\nQuestão\s+\d+[\.:]\s+)', texto, flags=re.IGNORECASE)
-    
-    texto_processado = ""
-    for i, bloco in enumerate(blocos):
-        if i % 2 == 0:  # Conteúdo normal
-            # Processar V/F
-            vf_patterns = [
-                (r'(✅|VERDADEIRO|V)\s*[-:]?\s*(?:CORRETO|CERTO|CORRETA)?', r'<span class="correct-answer">✅ VERDADEIRO</span>'),
-                (r'(❌|FALSO|F)\s*[-:]?\s*(?:INCORRETO|ERRADO|ERRADA)?', r'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>'),
-            ]
-            
-            for padrao, substituicao in vf_patterns:
-                bloco = re.sub(padrao, substituicao, bloco, flags=re.IGNORECASE)
-            
-            # Processar respostas marcadas como corretas
-            bloco = re.sub(
-                r'(?:✅\s*)?(RESPOSTA|Resposta):?\s*(?:[:\s]*)(.*?)(?:\n|$)',
-                r'<span class="correct-answer">✅ Resposta: \2</span>\n',
-                bloco,
-                flags=re.IGNORECASE
-            )
-            
-            # Procurar padrões de itens numerados corretos
-            bloco = re.sub(
-                r'(\d+[\.\)]\s*[^\n]*?)\s*\*\*CORRET[OA]\*\*',
-                r'<span class="correct-answer">✅ \1</span>',
-                bloco,
-                flags=re.IGNORECASE
-            )
-            
-            # Processar alternativas que não estão em blocos estruturados
-            linhas = bloco.split('\n')
-            novas_linhas = []
-            
-            for linha in linhas:
-                # Verificar se é uma alternativa com indicação de correta
-                match_alt_correta = re.match(r'^\s*([A-E])[\)\.]\s+(.*?)\s+(?:✅\s*)?(?:CORRETA|correta|✅).*$', linha, re.IGNORECASE)
-                if match_alt_correta:
-                    letra = match_alt_correta.group(1).upper()
-                    conteudo = match_alt_correta.group(2).strip()
-                    novas_linhas.append(f'<span class="correct-answer">✅ {letra}) {conteudo}</span>')
-                    continue
-                
-                # Verificar se é alternativa normal
-                match_alt = re.match(r'^\s*([A-E])[\)\.]\s+(.*)$', linha)
-                if match_alt:
-                    letra = match_alt.group(1).upper()
-                    conteudo = match_alt.group(2).strip()
-                    novas_linhas.append(f'<strong>{letra})</strong> {conteudo}')
-                    continue
-                
-                # Verificar V/F
-                match_vf = re.match(r'^\s*([VF])[\)\.]\s+(.*?)(?:\s+✅)?$', linha, re.IGNORECASE)
-                if match_vf:
-                    letra = match_vf.group(1).upper()
-                    conteudo = match_vf.group(2).strip()
-                    if letra == 'V':
-                        novas_linhas.append(f'<span class="correct-answer">✅ VERDADEIRO</span>')
-                    else:
-                        novas_linhas.append(f'<span style="color: #d32f2f; font-weight: bold;">❌ FALSO</span>')
-                    continue
-                
-                # Limpar markdown restante
-                linha = linha.replace('**', '')
-                novas_linhas.append(linha)
-            
-            texto_processado += '\n'.join(novas_linhas)
-        else:  # Título/separador
-            texto_processado += f'<br><strong>{bloco}</strong>'
-    
-    # Substituir quebras de linha por <br> para HTML
-    texto_processado = texto_processado.replace('\n', '<br>')
-    
-    # Remover múltiplas tags de correta duplicadas
-    texto_processado = re.sub(r'(<span class="correct-answer">.*?</span>)\s*<span class="correct-answer">', r'\1 ', texto_processado)
-    
-    return texto_processado
+                    resultado_html.append(
+                        f'<span class="wrong-answer"><strong>{icone} {label}</strong> {resto}</span>'
+                    )
+            else:
+                resultado_html.append(
+                    f'<span class="wrong-answer"><strong>❌ FALSO</strong> {resto}</span>'
+                )
+
+        elif m_enum:
+            num = m_enum.group(2)
+            conteudo = m_enum.group(3).replace('##CORRETA##', '').replace('✅', '').replace('**', '').strip()
+            if eh_correta:
+                resultado_html.append(
+                    f'<span class="correct-answer">✅ {num}. {conteudo}</span>'
+                )
+            else:
+                resultado_html.append(
+                    f'<span class="wrong-answer"><strong>{num}.</strong> {conteudo}</span>'
+                )
+
+        else:
+            # Linha genérica (enunciado, título, etc.)
+            linha_limpa_final = linha_limpa.replace('##CORRETA##', '').replace('✅', '').strip()
+            if eh_correta:
+                # Linha de resposta curta marcada como correta
+                resultado_html.append(
+                    f'<span class="correct-answer">✅ {linha_limpa_final}</span>'
+                )
+            else:
+                resultado_html.append(linha_limpa_final)
+
+    return '\n'.join(resultado_html)
+
 
 # ---------- CHAT COM CONTAINER DE ROLAGEM ----------
 st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
 for message in st.session_state.messages:
     if message["role"] == "user":
-        pergunta_limpa = message["content"]
-        pergunta_limpa = pergunta_limpa.replace('</div>', '').replace('<div>', '')
-        pergunta_limpa = pergunta_limpa.replace('<br>', ' ')
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
-        
+        pergunta_limpa = limpar_html(message["content"])
         st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
@@ -386,75 +398,65 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
         st.error("❌ Selecione uma matéria primeiro!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
-        
-        pergunta_limpa = prompt.replace('</div>', '').replace('<div>', '')
-        pergunta_limpa = re.sub(r'<[^>]+>', '', pergunta_limpa).strip()
-        
+
+        pergunta_limpa = limpar_html(prompt)
+
         st.markdown(f"""
         <div class="user-message">
             <strong>👤 Você:</strong><br>{pergunta_limpa}
         </div>
         """, unsafe_allow_html=True)
-        
+
         with st.spinner("Analisando..."):
             try:
-                texto_limitado = st.session_state.pdf_content[:150000]
-                
-                full_prompt = f"""
-Você é um professor assistente especializado em {st.session_state.materia_nome}.
+                texto_limitado = st.session_state.pdf_content[:100000]
 
-INSTRUÇÕES OBRIGATÓRIAS:
-1. Responda APENAS com base no conteúdo do material fornecido abaixo
-2. Para MÚLTIPLAS QUESTÕES enviadas de uma vez, responda CADA UMA separadamente
-3. Para cada questão, RETORNE A QUESTÃO COMPLETA (pergunta + TODAS as alternativas)
-4. Indique qual alternativa está correta usando " **CORRETA**" APÓS a alternativa
-5. Formate claramente cada questão com numeração (1., 2., etc) ou separador "---"
-6. NÃO adicione justificativas, explicações extras ou comentários
-7. Formato EXATO para múltipla escolha:
-   - Retorne a pergunta completa
-   - Retorne TODAS as alternativas (A, B, C, D, E)
-   - Após a correta, escreva: " **CORRETA**"
-   - Exemplo: "D) 800 metros **CORRETA**"
-8. Para V/F: Retorne "V) afirmação" ou "F) afirmação" e após a correta: " **CORRETA**"
-9. Para questões abertas: "Resposta: **resposta correta**"
-10. Se não encontrar: "Não encontrei essa informação no material"
-11. MANTENHA a numeração original das alternativas se existir no material
-12. Use "✅" APENAS se já estiver no material original
+                full_prompt = f"""Você é um professor assistente especializado em {st.session_state.materia_nome}.
+
+REGRAS ABSOLUTAS DE FORMATAÇÃO — SIGA À RISCA:
+
+1. Responda APENAS com base no conteúdo do material fornecido.
+2. Quando receber MÚLTIPLAS questões, responda TODAS elas, uma por uma, na ordem.
+3. Para cada questão de MÚLTIPLA ESCOLHA:
+   - Escreva o enunciado completo da questão.
+   - Liste TODAS as alternativas (A, B, C, D, E), cada uma em sua própria linha.
+   - Ao final da alternativa CORRETA, e SOMENTE ela, escreva exatamente: CORRETA
+   - Exemplo de linha correta: "D) texto da alternativa CORRETA"
+   - Exemplo de linha errada:  "A) texto da alternativa"
+   - NÃO escreva CORRETA em nenhuma outra alternativa.
+   - NÃO adicione justificativas ou explicações.
+
+4. Para questões VERDADEIRO/FALSO:
+   - Escreva: "VERDADEIRO CORRETA" se for verdadeiro.
+   - Escreva: "FALSO CORRETA" se for falso.
+
+5. Para questões de ENUMERAÇÃO:
+   - Liste todos os itens numerados.
+   - Ao final do item correto escreva: CORRETA
+
+6. Para questões ABERTAS ou de COMPLETAR:
+   - Escreva: "Resposta: [resposta] CORRETA"
+
+7. Se não encontrar a informação: "Não encontrei essa informação no material."
 
 MATERIAL DE ESTUDO:
 {texto_limitado}
 
-PERGUNTA(S) DO ALUNO:
+QUESTÕES DO ALUNO:
 {prompt}
 
-RESPOSTA (questões completas com alternativas, CADA UMA com a alternativa correta marcada com **CORRETA**):
+RESPOSTA (siga as regras acima, responda TODAS as questões):
 """
-                
+
                 response = co.chat(
                     model="command-a-03-2025",
                     message=full_prompt,
-                    temperature=0.2,
+                    temperature=0.1,
                     max_tokens=4096,
-                    preamble="Você é um assistente útil e preciso."
+                    preamble="Você é um assistente preciso. Siga as instruções de formatação à risca."
                 )
                 resposta = response.text
-                
-                # Pós-processamento para garantir que todas as questões tenham marcação
-                linhas = resposta.split('\n')
-                resposta_processada = []
-                
-                for linha in linhas:
-                    # Verificar se é uma alternativa que deveria estar marcada
-                    match_alt = re.match(r'^\s*([A-E])[\)\.]\s+(.*?)(?:\s*\*\*CORRETA\*\*)?$', linha, re.IGNORECASE)
-                    if match_alt and 'CORRETA' not in linha.upper():
-                        # Se encontrou alternativa sem marcação, verificar se é a correta baseado em contexto
-                        # Manter como está - a IA deve marcar corretamente
-                        resposta_processada.append(linha)
-                    else:
-                        resposta_processada.append(linha)
-                
-                resposta = '\n'.join(resposta_processada)
-                
+
                 st.session_state.messages.append({"role": "assistant", "content": resposta})
                 resposta_formatada = formatar_resposta(resposta)
                 st.markdown(f"""
@@ -462,13 +464,13 @@ RESPOSTA (questões completas com alternativas, CADA UMA com a alternativa corre
                     <strong>🤖 Assistente:</strong><br>{resposta_formatada}
                 </div>
                 """, unsafe_allow_html=True)
-                
+
             except Exception as e:
                 erro_msg = f"❌ Erro na API: {str(e)}"
                 st.error(erro_msg)
                 st.session_state.messages.append({"role": "assistant", "content": erro_msg})
-    
-    st.rerun()  # Recarrega para manter a rolagem consistente
+
+    st.rerun()
 
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
