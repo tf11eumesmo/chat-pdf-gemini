@@ -241,82 +241,88 @@ def limpar_html(texto):
     return texto.strip()
 
 
+def limpar_marcadores(texto):
+    """Remove todos os marcadores internos e resíduos de formatação de uma string."""
+    texto = texto.replace('>>>CORRETA<<<', '')
+    texto = texto.replace('##CORRETA##', '')
+    texto = texto.replace('✅', '')
+    texto = texto.replace('**', '')
+    texto = texto.replace('*', '')
+    return texto.strip()
+
+
 def formatar_resposta(texto):
     """
     Formata a resposta do modelo para realçar alternativas corretas com fundo verde.
-    Estratégia:
-      1. Normalizar o texto (remover HTML, tratar markdown).
-      2. Processar linha a linha para identificar alternativas corretas.
-      3. Emitir HTML seguro.
+    O modelo é instruído a marcar a linha correta com >>>CORRETA<<< no início.
+    Aqui detectamos esse marcador e aplicamos o estilo verde.
     """
 
-    # --- 1. Limpar HTML e normalização básica ---
-    texto = re.sub(r'<[^>]+>', '', texto)   # remove qualquer HTML residual
+    # 1. Remover HTML residual
+    texto = re.sub(r'<[^>]+>', '', texto)
     texto = texto.strip()
 
-    # Normalizar marcadores de correto vindos do modelo (vários formatos possíveis)
-    # Padroniza tudo para o token ##CORRETA## ao final da linha
+    # 2. Normalizar TODOS os possíveis formatos de marcação para >>>CORRETA<<<
+    #    Ordem importa: do mais específico para o mais genérico
     normalizacoes = [
-        # **CORRETA** ou *CORRETA* ou CORRETA (com ou sem asteriscos/espaços)
-        (r'\*{1,2}CORRETA\*{1,2}', '##CORRETA##'),
-        (r'\*{1,2}Correta\*{1,2}', '##CORRETA##'),
-        (r'\bCORRETA\b', '##CORRETA##'),
-        (r'\bCorreta\b', '##CORRETA##'),
-        # ✅ isolado perto de alternativa
-        (r'✅\s*CORRETA', '##CORRETA##'),
-        (r'✅\s*Correta', '##CORRETA##'),
-        # (Correta) ou (CORRETA)
-        (r'\(CORRETA\)', '##CORRETA##'),
-        (r'\(Correta\)', '##CORRETA##'),
-        # — CORRETA ou : CORRETA
-        (r'[-–:]\s*CORRETA', '##CORRETA##'),
-        (r'[-–:]\s*Correta', '##CORRETA##'),
-        # RESPOSTA CORRETA:
-        (r'RESPOSTA\s*CORRETA\s*:', '##CORRETA##'),
-        # **CORRETO** para enumeração
-        (r'\*{1,2}CORRETO\*{1,2}', '##CORRETA##'),
-        (r'\bCORRETO\b', '##CORRETA##'),
+        # >>>CORRETA<<< já no formato certo (idempotente)
+        (r'>>>CORRETA<<<', '>>>CORRETA<<<'),
+        # [CORRETA] no início ou fim
+        (r'\[CORRETA\]', '>>>CORRETA<<<'),
+        # **CORRETA** ou *CORRETA*
+        (r'\*{1,2}CORRETA\*{1,2}', '>>>CORRETA<<<'),
+        (r'\*{1,2}Correta\*{1,2}', '>>>CORRETA<<<'),
+        # ✅ CORRETA ou ✅CORRETA
+        (r'✅\s*CORRETA', '>>>CORRETA<<<'),
+        (r'✅\s*Correta', '>>>CORRETA<<<'),
+        # (CORRETA) ou (Correta)
+        (r'\(CORRETA\)', '>>>CORRETA<<<'),
+        (r'\(Correta\)', '>>>CORRETA<<<'),
+        # CORRETA: ou - CORRETA ou – CORRETA
+        (r'[-–:]\s*CORRETA\b', '>>>CORRETA<<<'),
+        (r'[-–:]\s*Correta\b', '>>>CORRETA<<<'),
+        # CORRETA sozinha como palavra (deve vir por último pois é mais genérico)
+        (r'\bCORRETA\b', '>>>CORRETA<<<'),
+        (r'\bCorreta\b', '>>>CORRETA<<<'),
+        # CORRETO (para enumerações)
+        (r'\*{1,2}CORRETO\*{1,2}', '>>>CORRETA<<<'),
+        (r'\bCORRETO\b', '>>>CORRETA<<<'),
+        (r'\bCorreto\b', '>>>CORRETA<<<'),
     ]
     for padrao, subst in normalizacoes:
         texto = re.sub(padrao, subst, texto, flags=re.IGNORECASE)
 
-    # --- 2. Processar linha a linha ---
+    # 3. Processar linha a linha
     linhas = texto.split('\n')
     resultado_html = []
 
-    # Padrão de alternativa: A) ou A. ou (A) no início da linha (com possível espaço/bold)
-    padrao_alternativa = re.compile(
-        r'^(\s*\*{0,2})([A-Ea-e])[)\.](\*{0,2})\s*(.*)', re.DOTALL
-    )
-    # Padrão de V/F
-    padrao_vf = re.compile(r'^(\s*)(VERDADEIRO|FALSO|V|F)[)\.]?\s*(.*)', re.IGNORECASE | re.DOTALL)
-    # Padrão de enumeração: 1. texto
-    padrao_enum = re.compile(r'^(\s*)(\d+)[)\.]\s*(.*)', re.DOTALL)
+    padrao_alternativa = re.compile(r'^\s*([A-Ea-e])\s*[)\.\-]\s*(.*)', re.DOTALL)
+    padrao_enum        = re.compile(r'^\s*(\d+)\s*[)\.\-]\s*(.*)', re.DOTALL)
+    padrao_vf          = re.compile(r'^\s*(VERDADEIRO|FALSO|V|F)\s*[)\.]?\s*(.*)', re.IGNORECASE | re.DOTALL)
 
     for linha in linhas:
-        linha_stripped = linha.strip()
+        s = linha.strip()
 
-        if not linha_stripped:
+        if not s:
             resultado_html.append('<br>')
             continue
 
-        # Remove ** soltos (negrito markdown) mas guarda o conteúdo
-        linha_limpa = linha_stripped.replace('**', '').replace('*', '')
+        # Detectar marcador de correta
+        eh_correta = '>>>CORRETA<<<' in s
 
-        # Verifica se a linha contém o marcador de correta
-        eh_correta = '##CORRETA##' in linha_limpa
-        linha_limpa = linha_limpa.replace('##CORRETA##', '').strip()
-        # Remove ✅ residual para recolocar de forma controlada
-        linha_limpa = linha_limpa.replace('✅', '').strip()
+        # Remover o marcador para processar o conteúdo limpo
+        s_limpo = s.replace('>>>CORRETA<<<', '').strip()
+        # Remover asteriscos de negrito markdown
+        s_limpo = re.sub(r'\*{1,2}(.*?)\*{1,2}', r'\1', s_limpo)
+        s_limpo = s_limpo.replace('✅', '').strip()
 
-        # Tenta casar com padrão de alternativa A) B) etc.
-        m_alt = padrao_alternativa.match(linha_stripped.replace('**', ''))
-        m_vf = padrao_vf.match(linha_limpa)
-        m_enum = padrao_enum.match(linha_limpa)
+        m_alt  = padrao_alternativa.match(s_limpo)
+        m_enum = padrao_enum.match(s_limpo)
+        m_vf   = padrao_vf.match(s_limpo)
 
         if m_alt:
-            letra = m_alt.group(2).upper()
-            conteudo = m_alt.group(4).replace('##CORRETA##', '').replace('✅', '').replace('**', '').strip()
+            letra    = m_alt.group(1).upper()
+            conteudo = limpar_marcadores(m_alt.group(2))
             if eh_correta:
                 resultado_html.append(
                     f'<span class="correct-answer">✅ {letra}) {conteudo}</span>'
@@ -327,28 +333,23 @@ def formatar_resposta(texto):
                 )
 
         elif m_vf and not m_alt:
-            vf_token = m_vf.group(2).upper()
-            resto = m_vf.group(3).replace('##CORRETA##', '').replace('✅', '').replace('**', '').strip()
-            eh_verdadeiro = vf_token in ('V', 'VERDADEIRO')
-            if eh_correta or eh_verdadeiro:
-                icone = '✅' if eh_verdadeiro else '❌'
-                label = 'VERDADEIRO' if eh_verdadeiro else 'FALSO'
-                if eh_correta:
-                    resultado_html.append(
-                        f'<span class="correct-answer">{icone} {label} {resto}</span>'
-                    )
-                else:
-                    resultado_html.append(
-                        f'<span class="wrong-answer"><strong>{icone} {label}</strong> {resto}</span>'
-                    )
+            vf_token = m_vf.group(1).upper()
+            resto    = limpar_marcadores(m_vf.group(2))
+            eh_v     = vf_token in ('V', 'VERDADEIRO')
+            label    = 'VERDADEIRO' if eh_v else 'FALSO'
+            icone    = '✅' if eh_v else '❌'
+            if eh_correta:
+                resultado_html.append(
+                    f'<span class="correct-answer">{icone} {label} {resto}</span>'
+                )
             else:
                 resultado_html.append(
-                    f'<span class="wrong-answer"><strong>❌ FALSO</strong> {resto}</span>'
+                    f'<span class="wrong-answer"><strong>{icone} {label}</strong> {resto}</span>'
                 )
 
-        elif m_enum:
-            num = m_enum.group(2)
-            conteudo = m_enum.group(3).replace('##CORRETA##', '').replace('✅', '').replace('**', '').strip()
+        elif m_enum and not m_alt:
+            num      = m_enum.group(1)
+            conteudo = limpar_marcadores(m_enum.group(2))
             if eh_correta:
                 resultado_html.append(
                     f'<span class="correct-answer">✅ {num}. {conteudo}</span>'
@@ -359,15 +360,14 @@ def formatar_resposta(texto):
                 )
 
         else:
-            # Linha genérica (enunciado, título, etc.)
-            linha_limpa_final = linha_limpa.replace('##CORRETA##', '').replace('✅', '').strip()
+            # Linha genérica: enunciado, cabeçalho de questão, etc.
+            conteudo = limpar_marcadores(s_limpo)
             if eh_correta:
-                # Linha de resposta curta marcada como correta
                 resultado_html.append(
-                    f'<span class="correct-answer">✅ {linha_limpa_final}</span>'
+                    f'<span class="correct-answer">✅ {conteudo}</span>'
                 )
             else:
-                resultado_html.append(linha_limpa_final)
+                resultado_html.append(conteudo)
 
     return '\n'.join(resultado_html)
 
@@ -413,39 +413,57 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
 
                 full_prompt = f"""Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
-REGRAS ABSOLUTAS DE FORMATAÇÃO — SIGA À RISCA:
+TAREFA: Responder questões com base no material fornecido.
 
-1. Responda APENAS com base no conteúdo do material fornecido.
-2. Quando receber MÚLTIPLAS questões, responda TODAS elas, uma por uma, na ordem.
-3. Para cada questão de MÚLTIPLA ESCOLHA:
-   - Escreva o enunciado completo da questão.
-   - Liste TODAS as alternativas (A, B, C, D, E), cada uma em sua própria linha.
-   - Ao final da alternativa CORRETA, e SOMENTE ela, escreva exatamente: CORRETA
-   - Exemplo de linha correta: "D) texto da alternativa CORRETA"
-   - Exemplo de linha errada:  "A) texto da alternativa"
-   - NÃO escreva CORRETA em nenhuma outra alternativa.
-   - NÃO adicione justificativas ou explicações.
+════════════════════════════════════════
+REGRA PRINCIPAL — LEIA COM ATENÇÃO:
+Você DEVE escrever a questão COMPLETA:
+  • O enunciado completo
+  • TODAS as alternativas (A, B, C, D, E) — sem exceção
+  • Adicione [CORRETA] SOMENTE ao final da alternativa correta
+  • NÃO omita nenhuma alternativa
+  • NÃO adicione explicações ou justificativas
+════════════════════════════════════════
 
-4. Para questões VERDADEIRO/FALSO:
-   - Escreva: "VERDADEIRO CORRETA" se for verdadeiro.
-   - Escreva: "FALSO CORRETA" se for falso.
+EXEMPLO DE SAÍDA CORRETA para múltipla escolha:
+---
+Qual é a capital do Brasil?
+A) São Paulo
+B) Rio de Janeiro
+C) Salvador
+D) Brasília [CORRETA]
+E) Manaus
+---
 
-5. Para questões de ENUMERAÇÃO:
-   - Liste todos os itens numerados.
-   - Ao final do item correto escreva: CORRETA
+EXEMPLO ERRADO (nunca faça isso):
+---
+D) Brasília [CORRETA]
+---
 
-6. Para questões ABERTAS ou de COMPLETAR:
-   - Escreva: "Resposta: [resposta] CORRETA"
+EXEMPLO para Verdadeiro/Falso:
+---
+A Terra é redonda.
+VERDADEIRO [CORRETA]
+---
 
-7. Se não encontrar a informação: "Não encontrei essa informação no material."
+EXEMPLO para questão aberta:
+---
+Qual o nome do processo de fotossíntese?
+Resposta: fotossíntese [CORRETA]
+---
 
+Se houver MÚLTIPLAS questões, responda TODAS, uma após a outra, separadas por uma linha em branco.
+Se não encontrar a informação no material, escreva: "Não encontrei essa informação no material."
+
+════════════════════════════════════════
 MATERIAL DE ESTUDO:
 {texto_limitado}
 
-QUESTÕES DO ALUNO:
+════════════════════════════════════════
+QUESTÕES:
 {prompt}
 
-RESPOSTA (siga as regras acima, responda TODAS as questões):
+RESPOSTA COMPLETA (enunciado + TODAS as alternativas + [CORRETA] na certa):
 """
 
                 response = co.chat(
