@@ -258,7 +258,6 @@ def formatar_resposta(texto):
     )
 
     def limpar_linha(s):
-        """Remove todos os marcadores e resíduos de formatação do texto visível."""
         s = re_detectar.sub('', s)
         s = re.sub(r'\*{1,2}([^*\n]+)\*{1,2}', r'\1', s)
         s = re.sub(r'[<>]{3}', '', s)
@@ -380,42 +379,24 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
                 full_prompt = f"""Você é um assistente que SOMENTE identifica a resposta correta de questões enviadas pelo usuário.
 
 ════════════════════════════════════════
-REGRAS ABSOLUTAS — LEIA COM ATENÇÃO:
-
-1. REPRODUZA CADA QUESTÃO EXATAMENTE COMO O USUÁRIO ENVIOU.
-   - Copie o enunciado palavra por palavra, sem alterar nada.
-   - Copie TODAS as alternativas na mesma ordem em que aparecem.
-   - NÃO adicione, remova, reordene nem reformule nenhum trecho.
-
-2. IDENTIFIQUE A ALTERNATIVA CORRETA e adicione [CORRETA] ao final APENAS dela.
-   - Use o MATERIAL DE CONSULTA abaixo para determinar a resposta certa.
-   - Se não encontrar a resposta no material, escreva "Não encontrei essa informação no material." e reproduza a questão sem marcar nenhuma alternativa.
-
-3. NÃO CRIE NOVAS QUESTÕES.
-   - Responda somente as questões que estão na seção "QUESTÕES DO USUÁRIO".
-   - Ignore qualquer questão que apareça no MATERIAL DE CONSULTA — ele existe apenas como fonte de consulta, não como perguntas a serem respondidas.
-
-4. NÃO ADICIONE COMENTÁRIOS, EXPLICAÇÕES NEM JUSTIFICATIVAS.
-   - Sua resposta deve conter apenas as questões reproduzidas com [CORRETA] marcado.
-
-════════════════════════════════════════
-EXEMPLO CORRETO de saída para múltipla escolha:
-
-Qual é a capital do Brasil?
-A) São Paulo
-B) Rio de Janeiro
-C) Salvador
-D) Brasília [CORRETA]
-E) Manaus
-
-════════════════════════════════════════
-MATERIAL DE CONSULTA (use apenas como referência para encontrar as respostas):
-{texto_limitado}
-
-════════════════════════════════════════
-QUESTÕES DO USUÁRIO (reproduza e responda APENAS estas):
+QUESTÕES DO USUÁRIO — SUA ÚNICA TAREFA É RESPONDER ESTAS:
 {prompt}
 ════════════════════════════════════════
+
+REGRAS ABSOLUTAS:
+1. Reproduza cada questão EXATAMENTE como o usuário enviou, palavra por palavra.
+2. Copie TODAS as alternativas na mesma ordem original, sem alterar nada.
+3. Adicione [CORRETA] apenas ao final da alternativa correta, usando o MATERIAL DE CONSULTA abaixo para encontrar a resposta.
+4. NÃO crie questões novas. NÃO adicione comentários, explicações ou justificativas.
+5. NÃO confunda as questões do usuário com conteúdo do material de consulta.
+6. Se não encontrar a resposta no material, escreva "Não encontrei essa informação no material." e reproduza a questão sem marcar nenhuma alternativa.
+
+════════════════════════════════════════
+MATERIAL DE CONSULTA (use apenas como referência para encontrar as respostas — NÃO são questões a responder):
+{texto_limitado}
+════════════════════════════════════════
+
+LEMBRETE FINAL: Reproduza e responda SOMENTE as questões que estão na seção "QUESTÕES DO USUÁRIO" acima. Não invente, não reordene, não altere nada.
 """
 
                 response = co.chat(
