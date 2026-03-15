@@ -244,8 +244,8 @@ def limpar_html(texto):
 def formatar_resposta(texto):
     """
     Formata a resposta do modelo linha a linha.
-    Detecta qualquer variante de marcador de 'correta', remove tudo do texto visível,
-    e aplica o estilo verde apenas na linha correta.
+    Preserva a ordem e numeração originais das questões.
+    Usa ✅ para marcar alternativas corretas.
     """
 
     # Regex para DETECTAR se uma linha contém marcador de correta
@@ -275,6 +275,7 @@ def formatar_resposta(texto):
     re_alt  = re.compile(r'^([A-Ea-e])\s*[)\.\-]\s*(.+)', re.DOTALL)
     re_enum = re.compile(r'^(\d+)\s*[)\.\-]\s*(.+)', re.DOTALL)
     re_vf   = re.compile(r'^(VERDADEIRO|FALSO|V|F)\b(.*)', re.IGNORECASE | re.DOTALL)
+    re_questao = re.compile(r'^(Questão\s+\d+|Q\d+|Q\.\s*\d+)', re.IGNORECASE)
 
     for linha in linhas:
         s = linha.strip()
@@ -287,10 +288,15 @@ def formatar_resposta(texto):
 
         # 2. Limpar para exibição
         s_vis = limpar_linha(s)
-        if not s_vis:
+        if not s_vis and not eh_correta:
             continue
 
-        # 3. Classificar e formatar
+        # 3. Preservar numeração de questões (Questão 1, Questão 2, etc.)
+        if re_questao.match(s_vis):
+            resultado_html.append(f'<strong style="color: #1976d2; font-size: 1.1em;">{s_vis}</strong>')
+            continue
+
+        # 4. Classificar e formatar alternativas
         m_alt  = re_alt.match(s_vis)
         m_enum = re_enum.match(s_vis)
         m_vf   = re_vf.match(s_vis)
@@ -335,6 +341,7 @@ def formatar_resposta(texto):
                 )
 
         else:
+            # Linhas de enunciado ou texto livre
             if eh_correta:
                 resultado_html.append(f'<span class="correct-answer">✅ {s_vis}</span>')
             else:
@@ -384,65 +391,66 @@ if prompt := st.chat_input("Envie suas questões sobre a matéria selecionada"):
 
                 full_prompt = f"""Você é um professor assistente especializado em {st.session_state.materia_nome}.
 
-TAREFA: Responder questões com base no material fornecido.
+TAREFA: Responder EXATAMENTE às questões enviadas pelo usuário, na ORDEM e com a NUMERAÇÃO originais.
 
 ════════════════════════════════════════
-REGRA PRINCIPAL — LEIA COM ATENÇÃO:
-Você DEVE escrever a questão COMPLETA:
-  • O enunciado completo
-  • TODAS as alternativas (A, B, C, D, E) — sem exceção
-  • Adicione [CORRETA] SOMENTE ao final da alternativa correta
-  • NÃO omita nenhuma alternativa
-  • NÃO adicione explicações ou justificativas
+🚫 REGRAS OBRIGATÓRIAS (NÃO IGNORE):
+
+1️⃣ PRESERVE A ORDEM: Responda na mesma sequência em que o usuário enviou.
+2️⃣ PRESERVE A NUMERAÇÃO: Use "Questão 1", "Questão 2", etc., exatamente como enviado.
+3️⃣ NÃO REORGANIZE: Não crie "Quiz 01", "Quiz 02" ou agrupe por tópicos.
+4️⃣ NÃO CRIE NOVAS QUESTÕES: Responda apenas o que foi perguntado.
+5️⃣ NÃO ALTERE ENUNCIADOS: Mantenha o texto original das questões.
+6️⃣ FORMATO DE RESPOSTA:
+   - Repita o enunciado completo da questão
+   - Liste TODAS as alternativas originais (a, b, c, d)
+   - Adicione [CORRETA] apenas ao final da alternativa correta
+   - NÃO altere o texto das alternativas
+   - NÃO adicione explicações, justificativas ou comentários extras
+
 ════════════════════════════════════════
+✅ EXEMPLO DE SAÍDA CORRETA (para uma questão do usuário):
 
-EXEMPLO DE SAÍDA CORRETA para múltipla escolha:
----
-Qual é a capital do Brasil?
-A) São Paulo
-B) Rio de Janeiro
-C) Salvador
-D) Brasília [CORRETA]
-E) Manaus
----
+Questão 1
+(Enunciado não visível completamente no arquivo, baseado nas opções sobre elaboração de laudo)
+a) Inventar uma causa provável para não deixar o laudo em branco.
+b) Declarar "Causa não apurada".
+c) Pedir para a guarnição de combate decidir a causa.
+d) Culpar o proprietário por falta de cuidado. [CORRETA]
 
-EXEMPLO ERRADO (nunca faça isso):
----
-D) Brasília [CORRETA]
----
+Questão 2
+Quem é o responsável por realizar, de forma ordinária, o acionamento da equipe de investigação?
+a) A seguradora interessada no laudo.
+b) O Centro Operacional de Bombeiros (COB). [CORRETA]
+c) O proprietário do imóvel sinistrado.
+d) O oficial de área presente no local.
 
-EXEMPLO para Verdadeiro/Falso:
----
-A Terra é redonda.
-VERDADEIRO [CORRETA]
----
+════════════════════════════════════════
+❌ EXEMPLOS PROIBIDOS (NUNCA FAÇA):
 
-EXEMPLO para questão aberta:
----
-Qual o nome do processo de fotossíntese?
-Resposta: fotossíntese [CORRETA]
----
-
-Se houver MÚLTIPLAS questões, responda TODAS, uma após a outra, separadas por uma linha em branco.
-Se não encontrar a informação no material, escreva: "Não encontrei essa informação no material."
+- Não use "# Quiz 01", "Quiz 02", etc.
+- Não renumere como "1.", "2.", "3." dentro de grupos
+- Não altere a ordem das questões
+- Não substitua o enunciado por um novo
+- Não adicione explicações após as alternativas
 
 ════════════════════════════════════════
 MATERIAL DE ESTUDO:
 {texto_limitado}
 
 ════════════════════════════════════════
-QUESTÕES:
+QUESTÕES DO USUÁRIO (RESPONDA NESTA ORDEM EXATA):
 {prompt}
 
-RESPOSTA COMPLETA (enunciado + TODAS as alternativas + [CORRETA] na certa):
+RESPOSTA (mantendo ordem, numeração e texto originais + [CORRETA] na certa):
 """
 
                 response = co.chat(
                     model="command-a-03-2025",
                     message=full_prompt,
-                    temperature=0.1,
+                    temperature=0.0,
                     max_tokens=4096,
-                    preamble="Você é um assistente preciso. Siga as instruções de formatação à risca."
+                    preamble="Siga as instruções de formatação e ordem à risca. Não crie conteúdo novo. Preserve a numeração original das questões."
                 )
                 resposta = response.text
 
